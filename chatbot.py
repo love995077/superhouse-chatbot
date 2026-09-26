@@ -302,8 +302,10 @@ using ONLY the query result below. Rules:
 - Lead with the direct answer (the key number/s in **bold**), then at most 5 short bullet points of insight.
 - Never invent numbers or rows that are not in the result. If the result is truncated say so.
 - Format numbers with thousands separators; mention units (pairs, Rs., Sdm., etc.) when known.
-- If there are many rows, summarise (top items, totals) - the full table is shown to the user separately.
-- Reply in the user's language style (English / Hinglish). Keep it under 120 words. No SQL in the answer.
+- When the result has more than 2 rows, a formatted table of ALL rows is displayed right below your text:
+  do NOT list the rows again. Give the headline (e.g. the top item, a total, a count) plus at most 3 short
+  insights (concentration, outliers, what needs attention). NEVER output a markdown table or '|' rows.
+- Reply in the language style of THIS question only (English / Hinglish). Keep it under 120 words. No SQL in the answer.
 """
 
 
@@ -455,6 +457,15 @@ def fallback_summary(cols, rows, truncated) -> str:
     return f"Found **{more}** records. The full result is in the table below."
 
 
+MD_TABLE_LINE = re.compile(r"^\s*\|.*\|\s*$")
+
+
+def strip_md_tables(text: str) -> str:
+    """The UI renders the real result table; drop any markdown table the LLM adds anyway."""
+    lines = [ln for ln in (text or "").splitlines() if not MD_TABLE_LINE.match(ln)]
+    return re.sub(r"\n{3,}", "\n\n", "\n".join(lines)).strip()
+
+
 def write_answer(question, sql, cols, rows, truncated, history=None) -> str:
     sample = [dict(zip(cols, (_fmt(v) for v in r))) for r in rows[:SUMMARY_ROWS]]
     info = (f"Question: {question}\nSQL: {sql}\nTotal rows returned: {len(rows)}"
@@ -462,9 +473,8 @@ def write_answer(question, sql, cols, rows, truncated, history=None) -> str:
             f"Rows (first {len(sample)}):\n{json.dumps(sample, ensure_ascii=False)}")
     try:
         msgs = [{"role": "system", "content": ANSWER_PROMPT}]
-        msgs += [m for m in _history_messages(history) if m["role"] == "user"][-2:]
         msgs.append({"role": "user", "content": info})
-        text = _complete(msgs).strip()
+        text = strip_md_tables(_complete(msgs))
         return text or fallback_summary(cols, rows, truncated)
     except Exception:
         log.exception("answer writing failed")

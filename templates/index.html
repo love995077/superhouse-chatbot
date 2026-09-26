@@ -1,0 +1,369 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Superhouse Chatbot</title>
+<link rel="icon" href="/static/logo.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --blue:#0066cc; --blue-dark:#0052a3; --blue-soft:#e8f1fb;
+    --bg:#e9ecef; --panel:#ffffff; --chat-bg:#f4f6fa;
+    --ink:#1f2937; --muted:#6b7280; --line:#e3e8ef; --green:#22c55e;
+    --radius:16px; --shadow:0 18px 50px -12px rgba(15,23,42,.35), 0 4px 14px rgba(15,23,42,.08);
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%; margin:0}
+  body{background:var(--bg); font-family:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif; color:var(--ink);}
+  button{font-family:inherit; cursor:pointer}
+
+  /* ---------- Widget shell ---------- */
+  .widget{position:fixed; right:24px; bottom:24px; width:400px; height:640px; max-height:calc(100vh - 48px);
+    background:var(--panel); border-radius:var(--radius); box-shadow:var(--shadow); display:flex; flex-direction:column;
+    overflow:hidden; transform-origin:bottom right; transition:width .25s ease, height .25s ease, opacity .2s ease, transform .2s ease; z-index:20;}
+  .widget.expanded{width:min(820px, calc(100vw - 48px)); height:calc(100vh - 48px);}
+  .widget.closed{opacity:0; transform:scale(.85) translateY(12px); pointer-events:none;}
+
+  /* ---------- Header ---------- */
+  .head{background:linear-gradient(135deg,var(--blue) 0%,var(--blue-dark) 100%); color:#fff; padding:12px 12px 12px 14px;
+    display:flex; align-items:center; gap:10px; flex-shrink:0;}
+  .logo{width:38px; height:38px; border-radius:50%; background:#fff; display:grid; place-items:center; flex-shrink:0;
+    box-shadow:0 0 0 2px rgba(255,255,255,.35);}
+  .logo img{width:30px; height:30px}
+  .title{flex:1; min-width:0}
+  .title h1{font-size:15px; font-weight:700; margin:0; letter-spacing:.1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+  .status{font-size:12px; opacity:.92; display:flex; align-items:center; gap:6px; margin-top:2px}
+  .dot{width:8px; height:8px; border-radius:50%; background:var(--green); box-shadow:0 0 0 3px rgba(34,197,94,.3)}
+  .dot.off{background:#f59e0b; box-shadow:0 0 0 3px rgba(245,158,11,.3)}
+  .ctrls{display:flex; gap:2px}
+  .icon-btn{width:32px; height:32px; border:0; border-radius:8px; background:transparent; color:#fff; display:grid; place-items:center; transition:background .15s}
+  .icon-btn:hover{background:rgba(255,255,255,.16)}
+  .icon-btn svg{width:17px; height:17px}
+
+  /* ---------- Messages ---------- */
+  .msgs{flex:1; overflow-y:auto; padding:16px 14px 8px; background:var(--chat-bg); scroll-behavior:smooth}
+  .msgs::-webkit-scrollbar{width:6px} .msgs::-webkit-scrollbar-thumb{background:#cfd6e0; border-radius:3px}
+  .row{display:flex; gap:8px; margin:0 0 12px; align-items:flex-end; animation:pop .2s ease}
+  .row.user{justify-content:flex-end}
+  .av{width:28px; height:28px; border-radius:50%; background:#fff; border:1px solid var(--line); display:grid; place-items:center; flex-shrink:0}
+  .av img{width:20px; height:20px}
+  .bubble{max-width:82%; padding:10px 13px; border-radius:16px; font-size:14px; line-height:1.5; word-wrap:break-word; overflow-wrap:anywhere}
+  .user .bubble{background:var(--blue); color:#fff; border-bottom-right-radius:4px; box-shadow:0 4px 12px -4px rgba(0,102,204,.5)}
+  .bot .bubble{background:#fff; color:var(--ink); border:1px solid var(--line); border-bottom-left-radius:4px; box-shadow:0 2px 6px rgba(15,23,42,.05)}
+  .bot .bubble.wide{max-width:calc(100% - 36px); width:calc(100% - 36px)}
+  .bot .bubble.err{background:#fff7ed; border-color:#fed7aa}
+  .bubble ul{margin:6px 0 2px 18px; padding:0} .bubble li{margin:2px 0}
+  .bubble b{font-weight:650} .bot .bubble b{color:#0b4f9c}
+  .bubble code{background:#eef2f7; padding:1px 5px; border-radius:4px; font-size:12.5px}
+  .time{font-size:10.5px; color:var(--muted); margin-top:4px}
+  .user .time{text-align:right; color:rgba(255,255,255,.8)}
+
+  /* ---------- Table inside bubble ---------- */
+  .res-title{font-size:12px; font-weight:600; color:var(--blue-dark); margin:10px 0 6px; display:flex; align-items:center; gap:6px}
+  .tbl-wrap{max-height:300px; overflow:auto; border:1px solid var(--line); border-radius:10px; background:#fff}
+  .tbl-wrap::-webkit-scrollbar{width:6px; height:6px} .tbl-wrap::-webkit-scrollbar-thumb{background:#cfd6e0; border-radius:3px}
+  table{border-collapse:collapse; width:100%; font-size:12.5px}
+  th{position:sticky; top:0; background:#eef4fb; color:#0b3d73; text-align:left; font-weight:600; padding:7px 10px; white-space:nowrap; border-bottom:1px solid #d6e3f3}
+  td{padding:6px 10px; border-bottom:1px solid #f0f2f5; white-space:nowrap; max-width:260px; overflow:hidden; text-overflow:ellipsis}
+  tr:nth-child(even) td{background:#fafbfd}
+  tr:hover td{background:#f1f7ff}
+  td.num, th.num{text-align:right; font-variant-numeric:tabular-nums}
+  .res-foot{display:flex; flex-wrap:wrap; gap:6px 12px; align-items:center; margin-top:7px; font-size:11.5px; color:var(--muted)}
+  .link{background:none; border:0; padding:0; color:var(--blue); font-size:11.5px; font-weight:600}
+  .link:hover{text-decoration:underline}
+  .sql{display:none; margin-top:7px; background:#0f172a; color:#e2e8f0; font:11.5px/1.5 ui-monospace,Consolas,monospace; padding:9px 10px; border-radius:8px; white-space:pre-wrap; overflow-x:auto}
+  .sql.show{display:block}
+  .badge{background:var(--blue-soft); color:var(--blue-dark); border-radius:999px; padding:1px 8px; font-weight:600}
+
+  .typing{display:inline-flex; gap:4px; padding:3px 2px}
+  .typing span{width:7px; height:7px; border-radius:50%; background:#94a3b8; animation:blink 1.2s infinite}
+  .typing span:nth-child(2){animation-delay:.2s} .typing span:nth-child(3){animation-delay:.4s}
+  @keyframes blink{0%,80%,100%{opacity:.3; transform:translateY(0)} 40%{opacity:1; transform:translateY(-3px)}}
+  @keyframes pop{from{opacity:0; transform:translateY(6px)} to{opacity:1; transform:none}}
+
+  /* ---------- Quick actions ---------- */
+  .quick{display:flex; gap:8px; overflow-x:auto; padding:10px 12px 8px; background:#fff; border-top:1px solid var(--line); scrollbar-width:none; flex-shrink:0}
+  .quick::-webkit-scrollbar{display:none}
+  .chip{flex-shrink:0; border:1px solid #cfe0f5; background:var(--blue-soft); color:var(--blue-dark); border-radius:999px; padding:6px 12px;
+    font-size:12.5px; font-weight:600; white-space:nowrap; transition:all .15s}
+  .chip:hover{background:var(--blue); color:#fff; border-color:var(--blue)}
+  .chip:disabled{opacity:.5; cursor:not-allowed}
+
+  /* ---------- Input ---------- */
+  .inbar{display:flex; align-items:center; gap:8px; padding:8px 12px 12px; background:#fff; flex-shrink:0}
+  .field{flex:1; display:flex; align-items:center; gap:4px; background:#f3f5f9; border:1px solid var(--line); border-radius:12px; padding:0 4px 0 6px; transition:border-color .15s, box-shadow .15s}
+  .field:focus-within{border-color:var(--blue); box-shadow:0 0 0 3px rgba(0,102,204,.12); background:#fff}
+  .attach{width:32px; height:32px; border:0; background:transparent; color:#64748b; border-radius:8px; display:grid; place-items:center}
+  .attach:hover{color:var(--blue); background:var(--blue-soft)}
+  .attach svg{width:18px; height:18px}
+  #q{flex:1; border:0; outline:0; background:transparent; font:14px 'Inter',sans-serif; padding:11px 4px; color:var(--ink); min-width:0}
+  .send{background:var(--blue); color:#fff; border:0; border-radius:12px; height:42px; padding:0 16px; font-weight:600; font-size:14px;
+    display:flex; align-items:center; gap:6px; transition:background .15s, transform .1s}
+  .send:hover{background:var(--blue-dark)} .send:active{transform:scale(.97)}
+  .send:disabled{background:#94b8e0; cursor:not-allowed}
+  .send svg{width:16px; height:16px}
+  .foot-note{font-size:10.5px; color:#9aa4b2; text-align:center; padding:0 0 8px; background:#fff}
+
+  /* ---------- Launcher ---------- */
+  .launcher{position:fixed; right:24px; bottom:24px; width:60px; height:60px; border-radius:50%; border:0; background:var(--blue); color:#fff;
+    box-shadow:0 10px 26px -6px rgba(0,102,204,.6); display:grid; place-items:center; z-index:10; transition:transform .15s}
+  .launcher:hover{transform:scale(1.06)}
+  .launcher.hidden{opacity:0; transform:scale(.6); pointer-events:none}
+  .launcher svg{width:28px; height:28px}
+  .launcher .ping{position:absolute; top:4px; right:4px; width:12px; height:12px; border-radius:50%; background:var(--green); border:2px solid #fff}
+
+  .toast{position:absolute; left:50%; bottom:120px; transform:translateX(-50%); background:#111827; color:#fff; font-size:12.5px; padding:8px 12px;
+    border-radius:8px; opacity:0; transition:opacity .2s; pointer-events:none; white-space:nowrap}
+  .toast.show{opacity:.92}
+
+  @media (max-width:520px){
+    .widget, .widget.expanded{right:0; bottom:0; width:100vw; height:100dvh; max-height:none; border-radius:0}
+    .bubble{max-width:88%}
+  }
+</style>
+</head>
+<body>
+
+<button class="launcher hidden" id="launcher" aria-label="Open Superhouse Chatbot" title="Chat with Superhouse Chatbot">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+  <span class="ping"></span>
+</button>
+
+<section class="widget" id="widget" role="dialog" aria-label="Superhouse Chatbot">
+  <header class="head">
+    <div class="logo"><img src="/static/logo.svg" alt="Superhouse logo"></div>
+    <div class="title">
+      <h1>Superhouse Chatbot</h1>
+      <div class="status"><span class="dot" id="dot"></span><span id="statusText">Online</span></div>
+    </div>
+    <div class="ctrls">
+      <button class="icon-btn" id="btnRefresh" aria-label="New conversation" title="New conversation">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>
+      </button>
+      <button class="icon-btn" id="btnExpand" aria-label="Expand" title="Expand">
+        <svg id="icoExpand" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M9 21H3v-6"/><path d="M21 3l-7 7"/><path d="M3 21l7-7"/></svg>
+      </button>
+      <button class="icon-btn" id="btnClose" aria-label="Close" title="Close">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <div class="msgs" id="msgs" aria-live="polite"></div>
+
+  <div class="quick" id="quick">
+    <button class="chip" data-q="Which leather items need to be ordered? Show top 10 by quantity">📦 Stock</button>
+    <button class="chip" data-q="Total order quantity and number of orders by buyer">👥 Buyers</button>
+    <button class="chip" data-q="Sale orders shipping in the next 30 days">📄 Orders</button>
+    <button class="chip" data-q="IO progress % for every internal order, lowest first">🏭 Production</button>
+    <button class="chip" data-q="Open samples past their delivery date, by merchandiser">🧪 Samples</button>
+    <button class="chip" data-q="Total excess stock value by leather group">💰 Excess Stock</button>
+    <button class="chip" data-q="Sole items with overdue requirement">👟 Soles</button>
+    <button class="chip" data-q="Order quantity by destination">🌍 Destinations</button>
+  </div>
+
+  <form class="inbar" id="form" autocomplete="off">
+    <div class="field">
+      <button type="button" class="attach" id="btnAttach" aria-label="Attach file" title="Attach file">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+      </button>
+      <input type="file" id="file" hidden>
+      <input id="q" type="text" placeholder="Ask about stock, orders..." maxlength="1000" aria-label="Message">
+    </div>
+    <button class="send" id="send" type="submit">
+      <span>Send</span>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+    </button>
+  </form>
+  <div class="foot-note">Answers are generated from Superhouse ERP data · AI can make mistakes</div>
+  <div class="toast" id="toast"></div>
+</section>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const widget = $("widget"), msgs = $("msgs"), form = $("form"), input = $("q"), sendBtn = $("send");
+  const STORE = "superhouse_chat_v1";
+  const WELCOME = "Hello! 👋 I'm the <b>Superhouse Chatbot</b>. Ask me about <b>leather &amp; sole stock</b>, " +
+    "<b>sale orders</b>, <b>samples</b> or <b>production (IO)</b> — in English or Hinglish.<br>" +
+    "Tap a quick action below or type your question.";
+  let history = [];          // [{role, content, sql}]
+  let transcript = [];       // rendered items, persisted for page reloads
+  let busy = false;
+
+  // ---------- storage (best effort) ----------
+  const save = () => { try { sessionStorage.setItem(STORE, JSON.stringify({history, transcript, expanded: widget.classList.contains("expanded")})); } catch (e) {} };
+  const load = () => { try { return JSON.parse(sessionStorage.getItem(STORE) || "null"); } catch (e) { return null; } };
+
+  // ---------- helpers ----------
+  const now = () => new Date().toLocaleTimeString([], {hour: "2-digit", minute: "2-digit"});
+  const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
+  const pretty = (c) => String(c).replace(/_/g, " ").replace(/\b\w/g, (m) => m.toUpperCase());
+  const isNum = (v) => typeof v === "number" && isFinite(v);
+  const fmt = (v) => v == null ? "" : isNum(v) ? v.toLocaleString("en-IN", {maximumFractionDigits: 2}) : String(v);
+  const scrollDown = () => requestAnimationFrame(() => { msgs.scrollTop = msgs.scrollHeight; });
+
+  function toast(text) {
+    const t = $("toast"); t.textContent = text; t.classList.add("show");
+    clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove("show"), 2600);
+  }
+
+  function botAvatar() {
+    const av = el("div", "av"); const img = el("img"); img.src = "/static/logo.svg"; img.alt = ""; av.appendChild(img); return av;
+  }
+
+  function addUser(text, time) {
+    const row = el("div", "row user"), b = el("div", "bubble");
+    b.appendChild(el("div", null, text));
+    b.appendChild(el("div", "time", time || now()));
+    row.appendChild(b); msgs.appendChild(row); scrollDown();
+  }
+
+  function buildTable(cols, rows) {
+    const wrap = el("div", "tbl-wrap"), table = el("table"), thead = el("thead"), tbody = el("tbody");
+    const numeric = cols.map((_, i) => rows.length > 0 && rows.every((r) => r[i] == null || isNum(r[i])) && rows.some((r) => isNum(r[i])));
+    const hr = el("tr");
+    cols.forEach((c, i) => hr.appendChild(el("th", numeric[i] ? "num" : null, pretty(c))));
+    thead.appendChild(hr);
+    rows.forEach((r) => {
+      const tr = el("tr");
+      r.forEach((v, i) => { const td = el("td", numeric[i] ? "num" : null, fmt(v)); td.title = fmt(v); tr.appendChild(td); });
+      tbody.appendChild(tr);
+    });
+    table.append(thead, tbody); wrap.appendChild(table); return wrap;
+  }
+
+  function downloadCsv(cols, rows, name) {
+    const q = (v) => { const s = v == null ? "" : String(v); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+    const csv = [cols.map(q).join(","), ...rows.map((r) => r.map(q).join(","))].join("\n");
+    const url = URL.createObjectURL(new Blob(["﻿" + csv], {type: "text/csv;charset=utf-8"}));
+    const a = el("a"); a.href = url; a.download = (name || "superhouse_result").replace(/[^\w-]+/g, "_") + ".csv";
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  function addBot(data, time) {
+    const row = el("div", "row bot"), b = el("div", "bubble");
+    if (data.type === "error") b.classList.add("err");
+    const body = el("div"); body.innerHTML = data.html || "";      // server-escaped markdown subset
+    b.appendChild(body);
+
+    const cols = data.columns || [], rows = data.rows || [];
+    if (cols.length && rows.length) {
+      b.classList.add("wide");
+      const t = el("div", "res-title"); t.textContent = "📊 " + (data.title || "Result"); b.appendChild(t);
+      b.appendChild(buildTable(cols, rows));
+      const foot = el("div", "res-foot");
+      foot.appendChild(el("span", "badge", (data.row_count || rows.length).toLocaleString("en-IN") + (data.truncated ? "+" : "") + " rows"));
+      if (data.truncated) foot.appendChild(el("span", null, "showing first " + rows.length));
+      const dl = el("button", "link", "⬇ Download CSV"); dl.type = "button";
+      dl.onclick = () => downloadCsv(cols, rows, data.title); foot.appendChild(dl);
+      if (data.sql) {
+        const sqlBox = el("pre", "sql", data.sql);
+        const tg = el("button", "link", "{ } View SQL"); tg.type = "button";
+        tg.onclick = () => { sqlBox.classList.toggle("show"); tg.textContent = sqlBox.classList.contains("show") ? "{ } Hide SQL" : "{ } View SQL"; };
+        foot.appendChild(tg); b.append(foot, sqlBox);
+      } else b.appendChild(foot);
+      if (data.attempts > 1) foot.appendChild(el("span", null, "auto-corrected ×" + (data.attempts - 1)));
+    }
+    b.appendChild(el("div", "time", time || now()));
+    row.append(botAvatar(), b); msgs.appendChild(row);
+    if (cols.length && rows.length) requestAnimationFrame(() => { msgs.scrollTop = Math.max(0, row.offsetTop - msgs.offsetTop - 60); });
+    else scrollDown();
+  }
+
+  function typing(on) {
+    let t = $("typing");
+    if (on && !t) {
+      t = el("div", "row bot"); t.id = "typing";
+      const b = el("div", "bubble"); b.innerHTML = '<span class="typing"><span></span><span></span><span></span></span>';
+      t.append(botAvatar(), b); msgs.appendChild(t); scrollDown();
+    } else if (!on && t) t.remove();
+  }
+
+  function setBusy(v) {
+    busy = v; sendBtn.disabled = v;
+    document.querySelectorAll(".chip").forEach((c) => (c.disabled = v));
+  }
+
+  function welcome() { addBot({type: "chat", html: WELCOME}); }
+
+  // ---------- send ----------
+  async function send(text) {
+    text = (text || "").trim();
+    if (!text || busy) return;
+    const t = now();
+    addUser(text, t); transcript.push({kind: "user", text, time: t});
+    input.value = ""; setBusy(true); typing(true);
+    let data;
+    try {
+      const res = await fetch("/api/chat", {
+        method: "POST", headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({message: text, history: history.slice(-6)}),
+      });
+      data = res.ok ? await res.json() : {type: "error", html: "The server couldn't process that request (HTTP " + res.status + "). Please try again."};
+    } catch (e) {
+      data = {type: "error", html: "I can't reach the server right now. Please check your connection and try again."};
+    }
+    typing(false);
+    const bt = now();
+    addBot(data, bt);
+    history.push({role: "user", content: text});
+    history.push({role: "assistant", content: data.message || "", sql: data.sql || null});
+    history = history.slice(-12);
+    transcript.push({kind: "bot", data: {...data, rows: (data.rows || []).slice(0, 200)}, time: bt});
+    transcript = transcript.slice(-40);
+    save(); setBusy(false); input.focus();
+  }
+
+  form.addEventListener("submit", (e) => { e.preventDefault(); send(input.value); });
+  document.querySelectorAll(".chip").forEach((c) => c.addEventListener("click", () => send(c.dataset.q)));
+  const quick = $("quick");
+  quick.addEventListener("wheel", (e) => { if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) { quick.scrollLeft += e.deltaY; e.preventDefault(); } }, {passive: false});
+
+  // ---------- window controls ----------
+  $("btnRefresh").onclick = () => {
+    history = []; transcript = []; msgs.innerHTML = ""; welcome(); save(); toast("Started a new conversation");
+  };
+  $("btnExpand").onclick = () => {
+    widget.classList.toggle("expanded");
+    const ex = widget.classList.contains("expanded");
+    $("btnExpand").title = ex ? "Restore" : "Expand";
+    $("icoExpand").innerHTML = ex
+      ? '<path d="M4 14h6v6"/><path d="M20 10h-6V4"/><path d="M14 10l7-7"/><path d="M3 21l7-7"/>'
+      : '<path d="M15 3h6v6"/><path d="M9 21H3v-6"/><path d="M21 3l-7 7"/><path d="M3 21l7-7"/>';
+    save(); scrollDown();
+  };
+  const closeW = () => { widget.classList.add("closed"); $("launcher").classList.remove("hidden"); };
+  $("btnClose").onclick = closeW;
+  $("launcher").onclick = () => { widget.classList.remove("closed"); $("launcher").classList.add("hidden"); input.focus(); scrollDown(); };
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !widget.classList.contains("closed")) closeW(); });
+
+  // ---------- attachment ----------
+  $("btnAttach").onclick = () => $("file").click();
+  $("file").onchange = (e) => {
+    const f = e.target.files && e.target.files[0]; e.target.value = "";
+    if (!f) return;
+    addBot({type: "chat", html: "📎 <b>" + f.name.replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])) +
+      "</b> received — file analysis isn't enabled yet. I answer from the Superhouse ERP data, so please type your question."});
+  };
+
+  // ---------- status ----------
+  fetch("/health").then((r) => r.json()).then((h) => {
+    if (!h.llm_ready) { $("dot").classList.add("off"); $("statusText").textContent = "Limited (AI key missing)"; }
+  }).catch(() => { $("dot").classList.add("off"); $("statusText").textContent = "Offline"; });
+
+  // ---------- restore ----------
+  const saved = load();
+  if (saved && Array.isArray(saved.transcript) && saved.transcript.length) {
+    history = saved.history || []; transcript = saved.transcript;
+    welcome();
+    transcript.forEach((it) => it.kind === "user" ? addUser(it.text, it.time) : addBot(it.data, it.time));
+    if (saved.expanded) $("btnExpand").click();
+  } else welcome();
+  input.focus();
+})();
+</script>
+</body>
+</html>

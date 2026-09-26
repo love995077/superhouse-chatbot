@@ -2,7 +2,7 @@
 
 AI assistant for **Superhouse Limited (Shoe Division)**. Ask questions in English or Hinglish about material stock, shortfalls, sale orders, samples and internal orders, and get answers straight from the ERP export (`Chatbot data.xlsx`).
 
-Built with Streamlit, the OpenAI API and SQLite, following the *NL2SQL Architect* methodology:
+Built as a **floating chat widget** (FastAPI + vanilla HTML/CSS/JS) on top of an OpenAI-powered NL2SQL engine over SQLite, following the *NL2SQL Architect* methodology:
 
 | Pillar | Implementation |
 |---|---|
@@ -25,6 +25,19 @@ Built with Streamlit, the OpenAI API and SQLite, following the *NL2SQL Architect
 
 The real Excel header sits at **row index 2** (row 0 is the company banner and row 1 is the report title), so it is auto-detected per sheet. Dates are stored as ISO `YYYY-MM-DD`. The derived columns `article_no` (all order sheets) and `buyer` (sale orders) make cross-sheet questions possible.
 
+## Architecture
+
+| File | Role |
+|---|---|
+| `main.py` | FastAPI app. `GET /` serves the widget, `POST /api/chat` answers questions, `GET /health` is the liveness probe |
+| `templates/index.html` | Floating chat widget. It has a blue header with an Online dot and refresh/expand/close controls; left/right chat bubbles; **HTML result tables inside bot bubbles** with CSV download and a "View SQL" toggle; scrollable quick-action chips; and an input bar with attachment, text field and Send button |
+| `chatbot.py` | NL2SQL engine: firewall, live-schema prompt, read-only guard, self-healing loop and answer writing |
+| `schema_docs.py` | Excel-to-SQLite column maps and business descriptions |
+| `setup_db.py` | Builds `superhouse.db` from the Excel file and reconciles totals |
+| `deploy_render.py` | Creates or updates the Render web service through the Render API |
+
+The server is stateless: the browser keeps the conversation (in `sessionStorage`) and sends the last turns with every request.
+
 ## Run locally
 
 ```bash
@@ -33,10 +46,10 @@ venv\Scripts\activate            # Windows  (source venv/bin/activate on Linux/M
 pip install -r requirements.txt
 copy .env.example .env           # then put your real OPENAI_API_KEY in .env
 python setup_db.py               # builds superhouse.db and prints reconciliation
-streamlit run app.py
+uvicorn main:app --reload        # open http://localhost:8000
 ```
 
-Replace the placeholder logo by dropping the official logo into the project root as `logo.png`. The default mark lives in `assets/logo.svg`.
+To use the official logo, replace `assets/logo.svg` (served at `/static/logo.svg`).
 
 ## Deploy to Render
 
@@ -47,6 +60,7 @@ python deploy_render.py
 
 The script creates the web service if it doesn't exist, or redeploys it if it does. The service runs:
 - **Build command:** `pip install -r requirements.txt && python setup_db.py`
-- **Start command:** `streamlit run app.py --server.port $PORT --server.address 0.0.0.0`
+- **Start command:** `uvicorn main:app --host 0.0.0.0 --port $PORT`
+- **Health check:** `/health`
 
 To refresh the data, replace `Chatbot data.xlsx` and push. Render rebuilds the database automatically.

@@ -24,8 +24,8 @@ load_dotenv()
 API = "https://api.render.com/v1"
 SERVICE_NAME = os.getenv("RENDER_SERVICE_NAME", "superhouse-chatbot")
 BUILD_CMD = "pip install -r requirements.txt && python setup_db.py"
-START_CMD = ("streamlit run app.py --server.port $PORT --server.address 0.0.0.0 "
-             "--server.headless true")
+START_CMD = "uvicorn main:app --host 0.0.0.0 --port $PORT --proxy-headers --forwarded-allow-ips='*'"
+HEALTH_PATH = "/health"
 TERMINAL_OK = {"live"}
 TERMINAL_BAD = {"build_failed", "update_failed", "canceled", "deactivated", "pre_deploy_failed"}
 
@@ -114,7 +114,10 @@ def main():
     repo = repo_url()
     svc = find_service(s, owner["id"])
     if svc:
-        print(f"Service '{SERVICE_NAME}' already exists ({svc['id']}) - updating env and redeploying.")
+        print(f"Service '{SERVICE_NAME}' already exists ({svc['id']}) - updating config, env and redeploying.")
+        call(s, "PATCH", f"/services/{svc['id']}", json={"serviceDetails": {
+            "healthCheckPath": HEALTH_PATH,
+            "envSpecificDetails": {"buildCommand": BUILD_CMD, "startCommand": START_CMD}}})
         call(s, "PUT", f"/services/{svc['id']}/env-vars", json=env_vars())
         call(s, "POST", f"/services/{svc['id']}/deploys", json={"clearCache": "do_not_clear"})
     else:
@@ -130,7 +133,7 @@ def main():
                 "runtime": "python",
                 "plan": os.getenv("RENDER_PLAN", "free"),
                 "region": os.getenv("RENDER_REGION", "singapore"),
-                "healthCheckPath": "/_stcore/health",
+                "healthCheckPath": HEALTH_PATH,
                 "envSpecificDetails": {"buildCommand": BUILD_CMD, "startCommand": START_CMD},
             },
         }
