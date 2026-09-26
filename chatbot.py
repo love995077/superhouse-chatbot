@@ -259,7 +259,9 @@ RULES = r"""
     "shipping this month / next N days"-> ex_factory_date date filters
     "CSA pending / not approved"       -> csa_date IS NULL
     "not booked / no booking ref"      -> cur_bk_ref_no IS NULL
-    Buyer/brand -> column buyer (derived) OR product_name LIKE '%(Walmart)%'; use LIKE on buyer.
+    Buyer/brand -> column buyer (derived) OR product_name LIKE '%(Walmart)%'; use LIKE on buyer
+    (spelling variants exist, e.g. 'Patrick'/'Patricks'). When grouping by buyer use
+    COALESCE(buyer, '(not specified)') AS buyer.
     Rupee orders: currency IN ('INR','Rs.').
     UK destinations are spelled many ways: destination LIKE '%U.K%' OR LIKE '%Uk%' OR LIKE '%Felixstowe%'
     OR LIKE '%Southampton%'. USA: LIKE '%U.S.A%' OR LIKE '%Usa%'. Germany/Belgium: LIKE '%Antwerp%'.

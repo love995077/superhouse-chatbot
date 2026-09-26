@@ -32,7 +32,7 @@ DEFAULT_DB = os.path.join(BASE_DIR, "superhouse.db")
 
 TOTAL_ROW = re.compile(r"(grand\s*total|<\s*total\s*>|^total$)", re.I)
 ARTICLE = re.compile(r"^\s*([A-Za-z]{0,3}-?\d{3,})")
-LAST_PARENS = re.compile(r"\(([^()]*)\)\s*$")
+LAST_PARENS = re.compile(r"\(([^()]*)\)(?!.*\()")   # last "(...)" even if a ",Suffix" follows
 
 
 def slugify(header: str) -> str:
