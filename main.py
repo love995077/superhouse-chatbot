@@ -42,6 +42,7 @@ class Turn(BaseModel):
 class ChatRequest(BaseModel):
     message: str = Field(default="", max_length=2000)
     history: List[Turn] = Field(default_factory=list)
+    gen_ui: bool = False          # "📊 Gen UI" toggle: ask for a chart/KPI dashboard with the table
 
 
 def md_to_html(text: str) -> str:
@@ -100,10 +101,10 @@ def overview():
 def chat(req: ChatRequest):
     # Sync endpoint -> FastAPI runs it in the threadpool, so slow LLM calls don't block the loop.
     history = [t.model_dump() for t in req.history[-chatbot.HISTORY_TURNS:]]
-    res = chatbot.ask(req.message, history)
+    res = chatbot.ask(req.message, history, gen_ui=req.gen_ui)
     rows = res.get("rows") or []
     cols = res.get("columns") or []
-    show_table = bool(rows) and not (len(rows) == 1 and len(cols) <= 2)
+    show_table = bool(rows) and bool(cols)        # the data always follows the 1-2 sentence opening
     return {
         "type": res["type"],
         "message": res["message"],                 # plain markdown (kept for history)
@@ -115,6 +116,7 @@ def chat(req: ChatRequest):
         "rows": [[_cell(v) for v in r] for r in rows[:TABLE_ROW_LIMIT]] if show_table else [],
         "row_count": len(rows),
         "truncated": bool(res.get("truncated")) or len(rows) > TABLE_ROW_LIMIT,
+        "chart": res.get("chart") if show_table else None,
     }
 
 
@@ -124,7 +126,7 @@ async def last_line_of_defence(request: Request, exc: Exception):
     msg = "Something went wrong on my side. Please try again in a moment."
     return JSONResponse(status_code=200, content={
         "type": "error", "message": msg, "html": html.escape(msg), "columns": [], "rows": [],
-        "row_count": 0, "truncated": False, "sql": None, "title": None, "attempts": 0})
+        "row_count": 0, "truncated": False, "sql": None, "title": None, "attempts": 0, "chart": None})
 
 
 if __name__ == "__main__":

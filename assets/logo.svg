@@ -1,18 +1,16 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" role="img" aria-label="Superhouse Limited">
-  <!-- Placeholder mark. Drop the official logo in as logo.png (project root) to replace it. -->
+  <!-- Placeholder mark. Replace this file with the official Superhouse logo. -->
   <defs>
-    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#F3D48A"/>
-      <stop offset=".55" stop-color="#D4A24C"/>
-      <stop offset="1" stop-color="#A8742A"/>
+    <linearGradient id="s" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#CBD5E1"/>
     </linearGradient>
     <linearGradient id="b" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#3A2519"/>
-      <stop offset="1" stop-color="#1E130D"/>
+      <stop offset="0" stop-color="#334155"/>
+      <stop offset="1" stop-color="#0F172A"/>
     </linearGradient>
   </defs>
-  <path d="M60 6 L106 22 V58 C106 86 86 104 60 114 C34 104 14 86 14 58 V22 Z" fill="url(#b)" stroke="url(#g)" stroke-width="4"/>
-  <path d="M60 16 L97 29 V58 C97 80 81 95 60 104 C39 95 23 80 23 58 V29 Z" fill="none" stroke="url(#g)" stroke-width="1.2" opacity=".55"/>
-  <text x="60" y="72" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="38" font-weight="700" fill="url(#g)" letter-spacing="1">SH</text>
-  <path d="M38 84 H82" stroke="url(#g)" stroke-width="1.5" opacity=".7"/>
+  <path d="M60 6 L106 22 V58 C106 86 86 104 60 114 C34 104 14 86 14 58 V22 Z" fill="url(#b)" stroke="url(#s)" stroke-width="5"/>
+  <text x="60" y="73" text-anchor="middle" font-family="'Segoe UI', Inter, Arial, sans-serif" font-size="40" font-weight="700" fill="url(#s)" letter-spacing="1">SH</text>
+  <path d="M40 86 H80" stroke="#2a78d6" stroke-width="4" stroke-linecap="round"/>
 </svg>

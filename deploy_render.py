@@ -24,7 +24,7 @@ load_dotenv()
 API = "https://api.render.com/v1"
 SERVICE_NAME = os.getenv("RENDER_SERVICE_NAME", "superhouse-chatbot")
 BUILD_CMD = "pip install -r requirements.txt && python setup_db.py"
-START_CMD = "uvicorn main:app --host 0.0.0.0 --port $PORT --proxy-headers --forwarded-allow-ips='*'"
+START_CMD = "uvicorn main:app --host 0.0.0.0 --port 10000"    # Render's default PORT is 10000
 HEALTH_PATH = "/health"
 TERMINAL_OK = {"live"}
 TERMINAL_BAD = {"build_failed", "update_failed", "canceled", "deactivated", "pre_deploy_failed"}

@@ -266,6 +266,8 @@ RULES = r"""
     UK destinations are spelled many ways: destination LIKE '%U.K%' OR LIKE '%Uk%' OR LIKE '%Felixstowe%'
     OR LIKE '%Southampton%'. USA: LIKE '%U.S.A%' OR LIKE '%Usa%'. Germany/Belgium: LIKE '%Antwerp%'.
     Number of orders -> COUNT(DISTINCT order_no) (an order can have several lines).
+    "pending / open sale orders"       -> order_status = 'Open' (every order line in this report is open/pending
+                                          shipment; do NOT add an ex_factory_date filter unless the user asks).
 - samples: sample register.
     Development samples -> sample_type = 'Devlopment' (ERP spelling!). Selection -> 'Slection'.
     Confirmation incl. revised -> sample_type LIKE 'Confirmation%'. PPS -> 'Pps'.
@@ -297,15 +299,24 @@ Questions that cannot be answered from these tables (prices of sale orders, supp
 type "chat" explaining briefly what data is available.
 """
 
-ANSWER_PROMPT = """You are the Superhouse Limited data assistant. Write the answer to the user's question
-using ONLY the query result below. Rules:
-- Lead with the direct answer (the key number/s in **bold**), then at most 5 short bullet points of insight.
-- Never invent numbers or rows that are not in the result. If the result is truncated say so.
-- Format numbers with thousands separators; mention units (pairs, Rs., Sdm., etc.) when known.
-- When the result has more than 2 rows, a formatted table of ALL rows is displayed right below your text:
-  do NOT list the rows again. Give the headline (e.g. the top item, a total, a count) plus at most 3 short
-  insights (concentration, outliers, what needs attention). NEVER output a markdown table or '|' rows.
-- Reply in the language style of THIS question only (English / Hinglish). Keep it under 120 words. No SQL in the answer.
+GEN_UI_RULES = """
+## Gen UI (dashboard) mode is ON
+Shape the result so it charts well: one label column (category or date) + one or more numeric measure columns,
+already aggregated, ordered meaningfully (ranking DESC, or chronological ASC for dates), max ~25 rows.
+Add a "chart" key to the JSON:
+  "chart": {"type": "bar" | "line" | "kpi", "x": "<label column alias>", "y": "<main numeric column alias>"}
+  bar  = compare categories/items; line = trend over dates/months (x must be the date/month column);
+  kpi  = a single row of headline numbers (x/y may be null).
+"""
+
+ANSWER_PROMPT = """You are the Superhouse Limited data assistant. The full query result is displayed to the user
+as a table directly below your text. Write ONLY a professional opening of 1-2 short sentences
+(max 35 words) that introduces the result, e.g. "Here are the top 5 leather items by balance quantity:".
+Rules:
+- NEVER list rows, NEVER use bullet points, NEVER repeat the table, NEVER output markdown tables.
+- If the result is a single value or a single row, state that headline figure in the sentence (in **bold**).
+- Never invent numbers. Mention truncation if the result was truncated.
+- Match the language style of THIS question (English or Hinglish). No SQL.
 """
 
 
@@ -313,10 +324,10 @@ def _today() -> str:
     return datetime.now(IST).strftime("%Y-%m-%d")
 
 
-def system_prompt() -> str:
+def system_prompt(gen_ui: bool = False) -> str:
     return ("You are an expert SQLite analyst for Superhouse Limited (Shoe Division). You convert business "
             "questions into ONE correct SQLite query over the database below.\n\n## Live database schema"
-            + schema_catalog() + "\n" + RULES.format(today=_today()))
+            + schema_catalog() + "\n" + RULES.format(today=_today()) + (GEN_UI_RULES if gen_ui else ""))
 
 
 # ---------------------------------------------------------------------------
@@ -365,8 +376,8 @@ def _history_messages(history):
     return msgs
 
 
-def generate_sql(question, history=None, previous_sql=None, error=None, zero_rows=False) -> dict:
-    messages = [{"role": "system", "content": system_prompt()}]
+def generate_sql(question, history=None, previous_sql=None, error=None, zero_rows=False, gen_ui=False) -> dict:
+    messages = [{"role": "system", "content": system_prompt(gen_ui)}]
     messages += _history_messages(history)
     if previous_sql and error:
         user = (f"Question: {question}\n\nYour previous SQL failed.\nSQL:\n{previous_sql}\n\nSQLite error:\n{error}\n\n"
@@ -450,13 +461,6 @@ def _fmt(v):
     return "" if v is None else str(v)
 
 
-def fallback_summary(cols, rows, truncated) -> str:
-    if len(rows) == 1 and len(cols) <= 6:
-        return "  \n".join(f"**{c.replace('_', ' ').title()}:** {_fmt(v)}" for c, v in zip(cols, rows[0]))
-    more = f"{MAX_ROWS}+" if truncated else f"{len(rows):,}"
-    return f"Found **{more}** records. The full result is in the table below."
-
-
 MD_TABLE_LINE = re.compile(r"^\s*\|.*\|\s*$")
 
 
@@ -466,7 +470,27 @@ def strip_md_tables(text: str) -> str:
     return re.sub(r"\n{3,}", "\n\n", "\n".join(lines)).strip()
 
 
-def write_answer(question, sql, cols, rows, truncated, history=None) -> str:
+BULLET_LINE = re.compile(r"^\s*([-*•]|\d+[.)])\s+")
+SENTENCE_END = re.compile(r"(?<=[.!?:])\s+(?=[A-Z*\"'(])")
+
+
+def opening_only(text: str, max_sentences: int = 2) -> str:
+    """Hard guarantee of 'no double answers': keep the first 1-2 sentences, drop lists/tables."""
+    text = strip_md_tables(text)
+    lines = [ln.strip() for ln in text.splitlines() if ln.strip() and not BULLET_LINE.match(ln)]
+    flat = " ".join(lines)
+    return " ".join(SENTENCE_END.split(flat)[:max_sentences]).strip()
+
+
+def default_opening(title, rows, truncated) -> str:
+    what = f" for **{title}**" if title else ""
+    if len(rows) == 1:
+        return f"Here is the result{what}:"
+    more = f"the first {len(rows):,}" if truncated else f"{len(rows):,}"
+    return f"Here are the details{what} ({more} records):"
+
+
+def write_answer(question, sql, cols, rows, truncated, history=None, title=None) -> str:
     sample = [dict(zip(cols, (_fmt(v) for v in r))) for r in rows[:SUMMARY_ROWS]]
     info = (f"Question: {question}\nSQL: {sql}\nTotal rows returned: {len(rows)}"
             f"{' (truncated at ' + str(MAX_ROWS) + ')' if truncated else ''}\n"
@@ -474,11 +498,40 @@ def write_answer(question, sql, cols, rows, truncated, history=None) -> str:
     try:
         msgs = [{"role": "system", "content": ANSWER_PROMPT}]
         msgs.append({"role": "user", "content": info})
-        text = strip_md_tables(_complete(msgs))
-        return text or fallback_summary(cols, rows, truncated)
+        text = opening_only(_complete(msgs))
+        return text or default_opening(title, rows, truncated)
     except Exception:
         log.exception("answer writing failed")
-        return fallback_summary(cols, rows, truncated)
+        return default_opening(title, rows, truncated)
+
+
+def _is_number(v) -> bool:
+    return isinstance(v, (int, float)) and not isinstance(v, bool)
+
+
+def chart_spec(plan: dict, cols, rows):
+    """Validate the LLM's chart hint against the real result; fall back to a heuristic. Never raises."""
+    try:
+        numeric = [c for i, c in enumerate(cols)
+                   if any(_is_number(r[i]) for r in rows) and all(r[i] is None or _is_number(r[i]) for r in rows)]
+        labels = [c for c in cols if c not in numeric]
+        hint = plan.get("chart") if isinstance(plan.get("chart"), dict) else {}
+        ctype = str(hint.get("type") or "").lower()
+        x = hint.get("x") if hint.get("x") in labels else (labels[0] if labels else None)
+        y = hint.get("y") if hint.get("y") in numeric else (numeric[-1] if numeric else None)
+        if not numeric:
+            return None
+        if len(rows) == 1:
+            ctype = "kpi"
+        elif ctype not in ("bar", "line", "kpi"):
+            first = str(rows[0][cols.index(x)]) if x else ""
+            ctype = "line" if re.match(r"^\d{4}-\d{2}", first) else "bar"
+        if ctype != "kpi" and not x:
+            ctype = "kpi"
+        return {"type": ctype, "x": x, "y": y, "measures": numeric}
+    except Exception:
+        log.exception("chart spec failed")
+        return None
 
 
 # ---------------------------------------------------------------------------
@@ -486,12 +539,12 @@ def write_answer(question, sql, cols, rows, truncated, history=None) -> str:
 # ---------------------------------------------------------------------------
 def _reply(kind, message, **extra):
     out = {"type": kind, "message": message, "sql": None, "columns": [], "rows": [],
-           "truncated": False, "title": None, "attempts": 0}
+           "truncated": False, "title": None, "attempts": 0, "chart": None}
     out.update(extra)
     return out
 
 
-def ask(question: str, history=None) -> dict:
+def ask(question: str, history=None, gen_ui: bool = False) -> dict:
     """Answer a natural-language question. Never raises."""
     try:
         question = (question or "").strip()
@@ -506,7 +559,7 @@ def ask(question: str, history=None) -> dict:
         if not llm_ready():
             return _reply("error", NO_KEY_MSG)
 
-        plan = generate_sql(question, history)
+        plan = generate_sql(question, history, gen_ui=gen_ui)
         kind = (plan.get("type") or "sql").lower()
         if kind in ("chat", "clarify"):
             return _reply("chat", plan.get("message") or GREETING_REPLY)
@@ -528,30 +581,32 @@ def ask(question: str, history=None) -> dict:
                 log.warning("[self-heal] attempt %d failed: %s | SQL: %s", attempt + 1, str(err)[:200], sql[:300])
                 if attempt == MAX_REPAIRS:
                     return _reply("error", GAVE_UP_MSG, sql=sql, attempts=attempts)
-                fix = generate_sql(question, history, previous_sql=sql, error=str(err))
+                fix = generate_sql(question, history, previous_sql=sql, error=str(err), gen_ui=gen_ui)
                 if (fix.get("type") or "sql").lower() != "sql":
                     return _reply("chat", fix.get("message") or GAVE_UP_MSG, attempts=attempts)
                 sql = clean_sql(fix.get("sql"))
                 title = fix.get("title") or title
+                plan = fix if fix.get("chart") else plan
                 continue
 
             # Soft heal: a valid query that returns nothing is often a wrong literal / over-strict filter.
             if _is_empty(rows) and not soft_healed and attempt < MAX_REPAIRS:
                 soft_healed = True
-                fix = generate_sql(question, history, previous_sql=sql, zero_rows=True)
+                fix = generate_sql(question, history, previous_sql=sql, zero_rows=True, gen_ui=gen_ui)
                 new_sql = clean_sql(fix.get("sql")) if (fix.get("type") or "sql").lower() == "sql" else ""
                 if new_sql and new_sql != sql:
                     log.info("[self-heal] zero rows -> retrying with revised SQL")
                     sql, title = new_sql, fix.get("title") or title
+                    plan = fix if fix.get("chart") else plan
                     continue
             break
 
         if _is_empty(rows):
             return _reply("no_records", NO_RECORD_MSG, sql=sql, columns=cols, attempts=attempts, title=title)
 
-        answer = write_answer(question, sql, cols, rows, truncated, history)
+        answer = write_answer(question, sql, cols, rows, truncated, history, title=title)
         return _reply("answer", answer, sql=sql, columns=cols, rows=rows, truncated=truncated,
-                      title=title, attempts=attempts)
+                      title=title, attempts=attempts, chart=chart_spec(plan, cols, rows) if gen_ui else None)
     except Exception as e:
         log.exception("chatbot pipeline failed")
         msg = GENERIC_FAIL_MSG
