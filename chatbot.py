@@ -316,6 +316,9 @@ RULES = r"""
     Number of orders -> COUNT(DISTINCT order_no) (an order can have several lines).
     "pending / open sale orders"       -> order_status = 'Open' (every order line in this report is open/pending
                                           shipment; do NOT add an ex_factory_date filter unless the user asks).
+    "dispatch / dispatch load / packing / packed / pending to pack / ready to ship" -> PROXY: open sale_orders by
+        ex_factory_date (no packing or dispatch status is tracked). Name the quantity neutrally, e.g.
+        open_pairs_due_ex_factory - never pairs_packed / pending_to_pack / dispatched.
 - samples: sample register.
     Development samples -> sample_type = 'Devlopment' (ERP spelling!). Selection -> 'Slection'.
     Confirmation incl. revised -> sample_type LIKE 'Confirmation%'. PPS -> 'Pps'.
@@ -327,6 +330,27 @@ RULES = r"""
     "pending / balance to cut"         -> bal_qty (io_qty - taken_qty); "not started" -> taken_qty = 0
     "progress %"                       -> ROUND(100.0 * taken_qty / io_qty, 1)
     Readiness flags grd, trl, m_chk, c_d hold 'Yes'/'No'.
+- Materials "awaited / short / missing / pending / not available" for orders (e.g. to complete cutting):
+    compare requirement against current stock and list ONLY materials that are genuinely short - never every
+    material assigned to the orders. Map each order's upper leather (leather + first word of its colour) and its
+    quarter lining (exact name; only some linings are stocked) to material_stock, then keep short_fall > 0
+    (short_fall = balance requirement bal_qty minus current stock cr_stock). Use this shape, changing only the
+    order filter inside "orders":
+      WITH orders AS (
+        SELECT io_no, leather, qtr_lining,
+               CASE WHEN instr(colour, '-') > 0 THEN substr(colour, 1, instr(colour, '-') - 1) ELSE colour END AS colour_key
+        FROM io_to_last WHERE bal_qty > 0 AND ex_factory_date <= '<date from the question>'),
+      needs AS (
+        SELECT m.product_name, o.io_no FROM orders o JOIN material_stock m
+          ON m.product_name LIKE '%' || o.leather || '%' AND m.product_name LIKE '%' || o.colour_key || '%'
+        UNION
+        SELECT m.product_name, o.io_no FROM orders o JOIN material_stock m ON m.product_name = o.qtr_lining)
+      SELECT m.product_name AS material, m.uom, ROUND(m.bal_qty, 2) AS requirement, ROUND(m.cr_stock, 2) AS in_stock,
+             ROUND(m.short_fall, 2) AS short_qty, ROUND(m.ord_qty, 2) AS on_order, ROUND(m.to_be_ord, 2) AS still_to_order,
+             GROUP_CONCAT(DISTINCT n.io_no) AS for_internal_orders
+      FROM needs n JOIN material_stock m ON m.product_name = n.product_name
+      WHERE m.short_fall > 0
+      GROUP BY m.product_name ORDER BY m.short_fall DESC
 - Merchandisers (people): Tanmay, Fazil, Rajeev, Musheer, Waqar Javed, Chandan Rathi, Kaif, Tajwar Akhtar.
   Match with LIKE (io_to_last uses 'Waqar').
 
@@ -372,6 +396,9 @@ as a table directly below your text. Write ONLY a professional opening of 1-2 sh
 Rules:
 - NEVER list rows, NEVER use bullet points, NEVER repeat the table, NEVER output markdown tables.
 - If the result is a single value or a single row, state that headline figure in the sentence (in **bold**).
+- If the question mentions packing, packed or dispatch: the data has no packing/dispatch status, so the result is a
+  proxy. Sentence 1 gives the figure using the exact phrase "open order pairs due ex-factory"; sentence 2 says this
+  is shown as a proxy because exact packing/dispatch status isn't tracked.
 - Never invent numbers. Mention truncation if the result was truncated.
 - Match the language style of THIS question (English or Hinglish). No SQL.
 """
