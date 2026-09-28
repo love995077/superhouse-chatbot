@@ -1,0 +1,20 @@
+.git
+.gitignore
+venv/
+.venv/
+__pycache__/
+*.py[cod]
+
+# Secrets are injected at runtime via env_file, never baked into the image
+.env
+.env.*
+!.env.example
+
+# Database is rebuilt at container start into the mounted ./data volume
+*.db
+*.db-journal
+*.db.tmp
+data/
+
+.vscode/
+.idea/

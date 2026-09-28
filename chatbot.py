@@ -28,7 +28,7 @@ log = logging.getLogger("superhouse.chatbot")
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.getenv("SUPERHOUSE_DB", os.path.join(BASE_DIR, "superhouse.db"))
-MODEL = os.getenv("OPENAI_MODEL", "gpt-4.1-mini")
+MODEL = os.getenv("OPENAI_MODEL", "gpt-6-luna")
 MAX_REPAIRS = 3
 MAX_ROWS = 500              # rows returned to the UI
 SUMMARY_ROWS = 40           # rows shown to the LLM for the written answer
@@ -353,13 +353,25 @@ def _get_client():
     return _client
 
 
+_NO_TEMPERATURE = {"o1", "o3", "o4", "gpt-5", "gpt-6"}     # model families known to reject temperature=0
+
+
 def _complete(messages, json_mode=False) -> str:
     kwargs = {"model": MODEL, "messages": messages}
-    if not MODEL.startswith(("o1", "o3", "o4", "gpt-5")):
+    if not MODEL.startswith(tuple(_NO_TEMPERATURE)):
         kwargs["temperature"] = 0
     if json_mode:
         kwargs["response_format"] = {"type": "json_object"}
-    resp = _get_client().chat.completions.create(**kwargs)
+    try:
+        resp = _get_client().chat.completions.create(**kwargs)
+    except Exception as e:
+        # A newer model may reject temperature; retry once without it instead of failing the question.
+        if "temperature" in kwargs and "temperature" in str(e).lower():
+            log.warning("model %s rejected temperature; retrying without it", MODEL)
+            kwargs.pop("temperature")
+            resp = _get_client().chat.completions.create(**kwargs)
+        else:
+            raise
     return resp.choices[0].message.content or ""
 
 

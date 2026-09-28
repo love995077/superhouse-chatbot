@@ -1,0 +1,15 @@
+services:
+  superhouse-bot:
+    build: .
+    image: superhouse-bot:latest
+    container_name: superhouse-bot
+    restart: unless-stopped
+    env_file: .env                      # OPENAI_API_KEY / OPENAI_MODEL - never baked into the image
+    environment:
+      SUPERHOUSE_DB: /app/data/superhouse.db
+    ports:
+      # Loopback only: reachable by the host's Caddy (host networking), not from the internet,
+      # and clear of the Mossi Meet app on :8000.
+      - "127.0.0.1:8001:8001"
+    volumes:
+      - ./data:/app/data                # superhouse.db lives here on the host

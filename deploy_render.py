@@ -66,7 +66,7 @@ def repo_url():
 
 def env_vars():
     out = [{"key": "PYTHON_VERSION", "value": os.getenv("RENDER_PYTHON_VERSION", "3.12.8")},
-           {"key": "OPENAI_MODEL", "value": os.getenv("OPENAI_MODEL", "gpt-4.1-mini")}]
+           {"key": "OPENAI_MODEL", "value": os.getenv("OPENAI_MODEL", "gpt-6-luna")}]
     key = (os.getenv("OPENAI_API_KEY") or "").strip()
     if key and "your_openai" not in key:
         out.append({"key": "OPENAI_API_KEY", "value": key})
