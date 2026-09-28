@@ -76,10 +76,6 @@
   td.num, th.num{text-align:right}
   .res-foot{display:flex; flex-wrap:wrap; gap:6px 12px; align-items:center; margin-top:8px; font-size:11.5px; color:var(--slate-500)}
   .badge{background:var(--slate-100); color:var(--slate-700); border-radius:999px; padding:2px 9px; font-weight:600}
-  .link{background:none; border:0; padding:0; color:var(--slate-700); font-size:11.5px; font-weight:600}
-  .link:hover{color:var(--slate-900); text-decoration:underline}
-  .sql{display:none; margin-top:8px; background:var(--slate-900); color:var(--slate-200); font:11.5px/1.5 ui-monospace,Consolas,monospace; padding:10px; border-radius:8px; white-space:pre-wrap}
-  .sql.show{display:block}
 
   /* ---------- Gen UI: KPI tiles + chart ---------- */
   .genui{margin-top:10px; display:flex; flex-direction:column; gap:10px}
@@ -224,9 +220,7 @@
   const $ = (id) => document.getElementById(id);
   const widget = $("widget"), msgs = $("msgs"), form = $("form"), input = $("q"), sendBtn = $("send"), genui = $("genui");
   const STORE = "superhouse_chat_v2";
-  const WELCOME = "Welcome to the Superhouse AI Desk. I can assist you with real-time insights on leather and sole inventory, " +
-    "sale orders, sampling, and internal production (IO) data. You can query me in English or Hinglish. " +
-    "Select a quick action below or type your request to begin.";
+  const WELCOME = "Hello! I am your Superhouse Assistant. Ask me anything about I.O. tracking, buyers, or production inventory to get started.";
   let history = [], transcript = [], busy = false;
 
   // ---------- storage (best effort; page works without it) ----------
@@ -272,13 +266,6 @@
     table.append(thead, tbody); wrap.appendChild(table); return wrap;
   }
 
-  function downloadCsv(cols, rows, name) {
-    const q = (v) => { const s = v == null ? "" : String(v); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
-    const csv = [cols.map(q).join(","), ...rows.map((r) => r.map(q).join(","))].join("\n");
-    const url = URL.createObjectURL(new Blob(["﻿" + csv], {type: "text/csv;charset=utf-8"}));
-    const a = el("a"); a.href = url; a.download = (name || "superhouse_result").replace(/[^\w-]+/g, "_") + ".csv";
-    document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000);
-  }
 
   // ---------- Gen UI ----------
   const NON_ADDITIVE = /(pct|percent|progress|avg|average|rate|ratio|days|lead|turnaround|min_lvl|%)/i;
@@ -417,14 +404,7 @@
       b.appendChild(buildTable(cols, rows));
       const foot = el("div", "res-foot");
       foot.appendChild(el("span", "badge", (data.row_count || rows.length).toLocaleString("en-IN") + (data.truncated ? "+" : "") + (rows.length === 1 ? " row" : " rows")));
-      const dl = el("button", "link", "Download CSV"); dl.type = "button"; dl.onclick = () => downloadCsv(cols, rows, data.title); foot.appendChild(dl);
-      if (data.sql) {
-        const sqlBox = el("pre", "sql", data.sql), tg = el("button", "link", "View SQL"); tg.type = "button";
-        tg.onclick = () => { sqlBox.classList.toggle("show"); tg.textContent = sqlBox.classList.contains("show") ? "Hide SQL" : "View SQL"; };
-        foot.appendChild(tg);
-        if (data.attempts > 1) foot.appendChild(el("span", null, "auto-corrected ×" + (data.attempts - 1)));
-        b.append(foot, sqlBox);
-      } else b.appendChild(foot);
+      b.appendChild(foot);
     }
     b.appendChild(el("div", "time", time || now()));
     row.append(botAvatar(), b); msgs.appendChild(row);

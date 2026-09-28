@@ -30,7 +30,7 @@ The real Excel header sits at **row index 2** (row 0 is the company banner and r
 | File | Role |
 |---|---|
 | `main.py` | FastAPI app. `GET /` serves the widget, `POST /api/chat` answers questions, `GET /health` is the liveness probe |
-| `templates/index.html` | Floating chat widget in a slate corporate style. It has a `#0F172A` header with an Online dot; white bot bubbles and `#334155` user bubbles; **borderless zebra-striped HTML tables** inside bot bubbles, with CSV download and "View SQL"; quick-action chips; and a pill input bar with the **📊 Gen UI** toggle |
+| `templates/index.html` | Floating chat widget in a slate corporate style. It has a `#0F172A` header with an Online dot; white bot bubbles and `#334155` user bubbles; **borderless zebra-striped HTML tables** inside bot bubbles (no CSV/SQL controls are exposed to end users); quick-action chips; and a pill input bar with the **📊 Gen UI** toggle |
 | `chatbot.py` | NL2SQL engine: firewall, live-schema prompt, read-only guard, self-healing loop and answer writing |
 | `schema_docs.py` | Excel-to-SQLite column maps and business descriptions |
 | `setup_db.py` | Builds `superhouse.db` from the Excel file and reconciles totals |

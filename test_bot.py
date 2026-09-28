@@ -83,6 +83,26 @@ def offline_tests():
     record("Firewall blocks off-topic", chatbot.firewall("tell me a cricket joke", False) is not None)
     record("Firewall lets ERP questions through", chatbot.firewall("Walmart orders this month", False) is None)
 
+    # Out-of-scope wording: one fixed, human message - never the model's own "tables don't include..." text
+    expected = ("I'm sorry, but I can only assist with data available in our production records (like I.O. numbers, "
+                "buyers, styles, and quantities). That specific information isn't tracked in our current database.")
+    record("Out-of-scope message text is exact", chatbot.OUT_OF_SCOPE_MSG == expected)
+    record("Off-topic firewall uses the out-of-scope message",
+           chatbot.firewall("tell me a cricket joke", False) == expected)
+    record("Model type 'out_of_scope' maps to the fixed message", chatbot._non_sql_message("out_of_scope", None) == expected)
+    record("Robotic 'available tables don't include' text is replaced",
+           chatbot._non_sql_message("chat", "The available tables don't include price information.") == expected)
+    record("Normal chat replies pass through untouched",
+           chatbot._non_sql_message("chat", "Sure, ask me about buyers.") == "Sure, ask me about buyers.")
+
+    # Widget: short welcome text, and no CSV / SQL controls exposed to end users
+    page = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "templates", "index.html"), encoding="utf-8").read()
+    welcome = ("Hello! I am your Superhouse Assistant. Ask me anything about I.O. tracking, buyers, or production "
+               "inventory to get started.")
+    record("Widget welcome message is exact", f'const WELCOME = "{welcome}";' in page)
+    record("Widget exposes no Download CSV / View SQL controls",
+           not any(s in page for s in ("Download CSV", "View SQL", "downloadCsv", "sqlBox")))
+
     # "No double answers": opener is cut to max 2 sentences, lists/tables stripped
     op = chatbot.opening_only("Here are the details: Zign leads. Next sentence. Third one.\n- bullet\n| a | b |")
     record("Opening capped at 2 sentences, no bullets/tables", op.count(".") <= 2 and "-" not in op and "|" not in op, repr(op))
@@ -171,6 +191,10 @@ def live_tests():
     # "No double answers" on real output
     record("Answers are a short opening only (<= 2 sentences, no bullets)",
            all(len(chatbot.SENTENCE_END.split(m)) <= 2 and "\n-" not in m for m in [r["message"]]))
+
+    # 4. A question the data cannot answer (there is no price column) -> the standard out-of-scope message
+    r = live_query("What is the price of order 29134?")
+    record("Q4 out-of-scope question gets the standard message", r["message"] == chatbot.OUT_OF_SCOPE_MSG, repr(r["message"][:90]))
 
 
 if __name__ == "__main__":

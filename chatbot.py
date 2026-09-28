@@ -71,9 +71,16 @@ OFF_TOPIC_WORDS = {
 GREETING_REPLY = ("Hello! 👋 I'm the Superhouse data assistant. Ask me about **leather & sole stock**, "
                   "**sale orders**, **samples** or **internal orders (IO)** - e.g. *'which leather items are "
                   "short?'*, *'Walmart orders shipping this month'* or *'open samples of Tanmay'*.")
-OFF_TOPIC_REPLY = ("I can only help with Superhouse business data - material stock & shortfalls, sale orders, "
-                   "samples and internal orders. Try *'top 10 sole items to be ordered'* or "
-                   "*'orders by destination'*.")
+OUT_OF_SCOPE_MSG = ("I'm sorry, but I can only assist with data available in our production records (like I.O. "
+                    "numbers, buyers, styles, and quantities). That specific information isn't tracked in our "
+                    "current database.")
+OFF_TOPIC_REPLY = OUT_OF_SCOPE_MSG
+# Backstop: if the model improvises its own "that data isn't available" explanation instead of returning
+# type "out_of_scope", replace it with the standard message.
+_UNAVAILABLE = re.compile(
+    r"available (tables|data)|(don'?t|do not|doesn'?t|does not) (include|contain|have|track|store)"
+    r"|not (available|tracked|included|stored|present)|isn'?t (available|tracked|included)"
+    r"|no (price|pricing|cost|supplier|rate)s? (data|information|column)|cannot (be answered|answer|provide)", re.I)
 
 
 def _words(text: str) -> set:
@@ -293,10 +300,11 @@ RULES = r"""
 {{"type": "sql", "sql": "<SQLite query>", "title": "<3-6 word title for the result>"}}
 {{"type": "chat", "message": "<short reply>"}}      -- greetings / meta questions about what you can do
 {{"type": "clarify", "message": "<one question>"}}  -- ONLY when truly impossible to guess; prefer a sensible default
+{{"type": "out_of_scope"}}                          -- the question needs data these tables do not hold
 Answer every question that can be derived from the data with SQL, including analytics, rankings,
 percentages, comparisons, trends and cross-sheet questions. Users may write in English, Hindi or Hinglish.
-Questions that cannot be answered from these tables (prices of sale orders, supplier names, weather...) ->
-type "chat" explaining briefly what data is available.
+Questions that cannot be answered from these tables (prices or values of sale orders, supplier names, costs,
+employees, weather...) -> {{"type": "out_of_scope"}} with no message; never explain which tables or columns exist.
 """
 
 GEN_UI_RULES = """
@@ -549,6 +557,13 @@ def chart_spec(plan: dict, cols, rows):
 # ---------------------------------------------------------------------------
 # Public entry point
 # ---------------------------------------------------------------------------
+def _non_sql_message(kind, message, default=GREETING_REPLY) -> str:
+    """Message for a non-SQL plan: out-of-scope questions always get the standard wording."""
+    if kind == "out_of_scope" or (message and _UNAVAILABLE.search(message)):
+        return OUT_OF_SCOPE_MSG
+    return message or default
+
+
 def _reply(kind, message, **extra):
     out = {"type": kind, "message": message, "sql": None, "columns": [], "rows": [],
            "truncated": False, "title": None, "attempts": 0, "chart": None}
@@ -573,8 +588,8 @@ def ask(question: str, history=None, gen_ui: bool = False) -> dict:
 
         plan = generate_sql(question, history, gen_ui=gen_ui)
         kind = (plan.get("type") or "sql").lower()
-        if kind in ("chat", "clarify"):
-            return _reply("chat", plan.get("message") or GREETING_REPLY)
+        if kind != "sql":
+            return _reply("chat", _non_sql_message(kind, plan.get("message")))
 
         sql = clean_sql(plan.get("sql"))
         title = plan.get("title")
@@ -594,8 +609,10 @@ def ask(question: str, history=None, gen_ui: bool = False) -> dict:
                 if attempt == MAX_REPAIRS:
                     return _reply("error", GAVE_UP_MSG, sql=sql, attempts=attempts)
                 fix = generate_sql(question, history, previous_sql=sql, error=str(err), gen_ui=gen_ui)
-                if (fix.get("type") or "sql").lower() != "sql":
-                    return _reply("chat", fix.get("message") or GAVE_UP_MSG, attempts=attempts)
+                fix_kind = (fix.get("type") or "sql").lower()
+                if fix_kind != "sql":
+                    return _reply("chat", _non_sql_message(fix_kind, fix.get("message"), GAVE_UP_MSG),
+                                  attempts=attempts)
                 sql = clean_sql(fix.get("sql"))
                 title = fix.get("title") or title
                 plan = fix if fix.get("chart") else plan
