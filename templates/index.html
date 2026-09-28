@@ -219,12 +219,14 @@
 (() => {
   const $ = (id) => document.getElementById(id);
   const widget = $("widget"), msgs = $("msgs"), form = $("form"), input = $("q"), sendBtn = $("send"), genui = $("genui");
-  const STORE = "superhouse_chat_v2";
+  const STORE = "superhouse_chat_v3";
   const WELCOME = "Hello! I am your Superhouse Assistant. Ask me anything about I.O. tracking, buyers, or production inventory to get started.";
-  let history = [], transcript = [], busy = false;
+  // Conversation context lives on the server (HttpOnly session cookie); the page only keeps what it displays.
+  let transcript = [], busy = false;
+  try { sessionStorage.removeItem("superhouse_chat_v2"); } catch (e) {}   // older builds stored query context
 
   // ---------- storage (best effort; page works without it) ----------
-  const save = () => { try { sessionStorage.setItem(STORE, JSON.stringify({history, transcript,
+  const save = () => { try { sessionStorage.setItem(STORE, JSON.stringify({transcript,
     expanded: widget.classList.contains("expanded"), genui: genui.checked})); } catch (e) {} };
   const load = () => { try { return JSON.parse(sessionStorage.getItem(STORE) || "null"); } catch (e) { return null; } };
 
@@ -280,7 +282,7 @@
       return box;
     }
     const yi = cols.indexOf(spec.y), xi = cols.indexOf(spec.x);
-    const base = pretty(String(spec.y).replace(/^(total|sum|avg|average)_/i, ""));   // avoid "Total Total ..."
+    const base = pretty(String(spec.y).replace(/^(total|sum|avg|average)[_ ]/i, ""));   // avoid "Total Total ..."
     const vals = rows.map((r) => r[yi]).filter(isNum);
     tile(rows.length.toLocaleString("en-IN"), "Records");
     if (vals.length) {
@@ -434,16 +436,16 @@
     let data;
     try {
       const res = await fetch("/api/chat", {method: "POST", headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({message: text, history: history.slice(-6), gen_ui: genui.checked})});
-      data = res.ok ? await res.json() : {type: "error", html: "The server couldn't process that request (HTTP " + res.status + "). Please try again."};
+        credentials: "same-origin", body: JSON.stringify({message: text, gen_ui: genui.checked})});
+      let body = null;
+      try { body = await res.json(); } catch (e) {}
+      data = body && body.html ? body : {type: "error", html: "The server couldn't process that request. Please try again."};
     } catch (e) {
       data = {type: "error", html: "I can't reach the server right now. Please check your connection and try again."};
     }
     typing(false);
     const bt = now();
     addBot(data, bt);
-    history.push({role: "user", content: text}, {role: "assistant", content: data.message || "", sql: data.sql || null});
-    history = history.slice(-12);
     transcript.push({kind: "bot", data: {...data, rows: (data.rows || []).slice(0, 200)}, time: bt});
     transcript = transcript.slice(-40);
     save(); setBusy(false); input.focus();
@@ -459,7 +461,10 @@
 
   // ---------- window controls ----------
   const closeW = () => { widget.classList.add("closed"); $("launcher").classList.remove("hidden"); };
-  $("btnRefresh").onclick = () => { history = []; transcript = []; msgs.innerHTML = ""; welcome(); save(); toast("Started a new conversation"); };
+  $("btnRefresh").onclick = () => {
+    fetch("/api/reset", {method: "POST", credentials: "same-origin"}).catch(() => {});   // drop server-side context
+    transcript = []; msgs.innerHTML = ""; welcome(); save(); toast("Started a new conversation");
+  };
   $("btnExpand").onclick = () => {
     widget.classList.toggle("expanded");
     const ex = widget.classList.contains("expanded");
@@ -475,7 +480,7 @@
 
   // ---------- status ----------
   fetch("/health").then((r) => r.json()).then((h) => {
-    if (!h.llm_ready) { $("dot").classList.add("off"); $("statusText").textContent = "Limited (AI key missing)"; }
+    if (!h.llm_ready) { $("dot").classList.add("off"); $("statusText").textContent = "Limited"; }
   }).catch(() => { $("dot").classList.add("off"); $("statusText").textContent = "Offline"; });
 
   // ---------- restore ----------
@@ -483,7 +488,7 @@
   if (saved) { genui.checked = !!saved.genui; syncGenui(); }
   welcome();
   if (saved && Array.isArray(saved.transcript) && saved.transcript.length) {
-    history = saved.history || []; transcript = saved.transcript;
+    transcript = saved.transcript;
     transcript.forEach((it) => it.kind === "user" ? addUser(it.text, it.time) : addBot(it.data, it.time));
   }
   if (saved && saved.expanded) $("btnExpand").click();

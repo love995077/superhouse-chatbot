@@ -4,12 +4,31 @@ services:
     image: superhouse-bot:latest
     container_name: superhouse-bot
     restart: unless-stopped
-    env_file: .env                      # OPENAI_API_KEY / OPENAI_MODEL - never baked into the image
+    # Only the variables the app needs are passed in (values are read from ./.env by compose),
+    # so unrelated secrets in .env (e.g. deploy keys) never enter the container.
     environment:
+      OPENAI_API_KEY: ${OPENAI_API_KEY:?OPENAI_API_KEY must be set in .env}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-6-luna}
       SUPERHOUSE_DB: /app/data/superhouse.db
+      COOKIE_SECURE: "1"
     ports:
       # Loopback only: reachable by the host's Caddy (host networking), not from the internet,
       # and clear of the Mossi Meet app on :8000.
       - "127.0.0.1:8001:8001"
     volumes:
       - ./data:/app/data                # superhouse.db lives here on the host
+    # Hardening: immutable root filesystem, no Linux capabilities, no privilege escalation,
+    # bounded memory / processes, and rotated logs so a flood can't fill the disk.
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 1g
+    pids_limit: 256
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

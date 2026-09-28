@@ -29,4 +29,9 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 \
 
 # Rebuild superhouse.db from the bundled Excel on every start (atomic, ~2s), so the data
 # always matches the shipped workbook, then hand PID 1 to uvicorn for clean signal handling.
-CMD ["sh", "-c", "python setup_db.py \"Chatbot data.xlsx\" \"$SUPERHOUSE_DB\" && exec uvicorn main:app --host 0.0.0.0 --port 8001 --proxy-headers --forwarded-allow-ips=127.0.0.1"]
+# - single worker: sessions and rate limits are in-process state
+# - --no-proxy-headers: Caddy proxies at layer 4 and never sets X-Forwarded-*, so trusting those
+#   headers would only let clients spoof their address
+# - --no-server-header: don't advertise the server software
+# - --limit-concurrency: shed load with 503s instead of piling up connections
+CMD ["sh", "-c", "python setup_db.py \"Chatbot data.xlsx\" \"$SUPERHOUSE_DB\" && exec uvicorn main:app --host 0.0.0.0 --port 8001 --workers 1 --no-proxy-headers --no-server-header --limit-concurrency 64 --timeout-keep-alive 5"]

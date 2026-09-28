@@ -29,7 +29,8 @@ The real Excel header sits at **row index 2** (row 0 is the company banner and r
 
 | File | Role |
 |---|---|
-| `main.py` | FastAPI app. `GET /` serves the widget, `POST /api/chat` answers questions, `GET /health` is the liveness probe |
+| `main.py` | FastAPI app. `GET /` serves the widget (with a per-request CSP nonce), `POST /api/chat` answers questions, `POST /api/reset` starts a new conversation, `GET /health` is the liveness probe |
+| `security.py` | Server-side session store, rate limiting, security headers and the request body-size limit |
 | `templates/index.html` | Floating chat widget in a slate corporate style. It has a `#0F172A` header with an Online dot; white bot bubbles and `#334155` user bubbles; **borderless zebra-striped HTML tables** inside bot bubbles (no CSV/SQL controls are exposed to end users); quick-action chips; and a pill input bar with the **📊 Gen UI** toggle |
 | `chatbot.py` | NL2SQL engine: firewall, live-schema prompt, read-only guard, self-healing loop and answer writing |
 | `schema_docs.py` | Excel-to-SQLite column maps and business descriptions |
@@ -44,7 +45,21 @@ The real Excel header sits at **row index 2** (row 0 is the company banner and r
 - a bar chart for rankings or a line chart for date trends, with hover tooltips and a measure switcher
 - the full data table
 
-The server is stateless: the browser keeps the conversation (in `sessionStorage`) and sends the last turns with every request.
+Conversation context lives **server-side**. That includes earlier questions and the SQL behind them, which follow-ups like "what about Dockers?" rely on. It is keyed by an opaque, HttpOnly session cookie. The browser sends only `{message, gen_ui}` and receives only the bot message and display data, so no SQL, internal table names or column names ever reach it. State is in-process, so run a **single** uvicorn worker (the Docker image does).
+
+## Security
+
+| Layer | Protection |
+|---|---|
+| Database engine | SQLite **authorizer allowlist** for AI-generated SQL: only `SELECT` reads of the 5 business tables are allowed. Everything else is refused: writes, DDL, `ATTACH`, `PRAGMA`, `sqlite_master`, `pragma_*()` functions, dangerous functions. Also a read-only connection plus `query_only`, a 1 MB value cap, a query-length cap, an 8 s time budget and a row cap. |
+| SQL text guard | Single `SELECT`/`WITH` statement only, with keyword blocklist (defence in depth) |
+| Prompt injection | Security rules in the system prompt; a jailbreak pre-filter; an **output leak filter** that replaces any model text (reply, opening, title) containing SQL or internal identifiers; client-supplied history is ignored |
+| API | Only public fields returned; no `/openapi.json`, `/docs` or `/redoc`; generic errors, with details only in server logs; 16 KB body limit |
+| Abuse / DoS | Per-session (20/min) and global (120/min) rate limits → 429; at most 8 concurrent questions → 503; uvicorn `--limit-concurrency 64` |
+| Browser | CSP with per-request nonce (no inline script execution otherwise), `X-Frame-Options: DENY`, `nosniff`, `Referrer-Policy: no-referrer`, HSTS, COOP/CORP, `no-store` on API responses, no CORS; cookie `HttpOnly; SameSite=Strict; Secure; Path=/api` |
+| Container | Non-root, read-only root filesystem, all capabilities dropped, `no-new-privileges`, memory/PID limits, rotated logs, loopback-only port, only the needed environment variables passed in |
+
+Behind the layer-4 Caddy proxy every request arrives from 127.0.0.1, so there is no trustworthy client IP. Rate limits are therefore keyed by session plus a global cap, and uvicorn runs with `--no-proxy-headers` so forged `X-Forwarded-For` headers are ignored.
 
 ## Run locally
 
@@ -62,8 +77,9 @@ To use the official logo, replace `assets/logo.svg` (served at `/static/logo.svg
 ## Tests
 
 ```bash
-python test_bot.py            # offline checks + 3 live AI queries (needs OPENAI_API_KEY)
-python test_bot.py --offline  # no API calls
+pip install -r requirements-dev.txt
+python test_bot.py            # offline, security and API checks + live AI queries (needs OPENAI_API_KEY)
+python test_bot.py --offline  # no model calls
 ```
 
 ## Deploy to Render
