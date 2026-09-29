@@ -72,7 +72,11 @@ python setup_db.py               # builds superhouse.db and prints reconciliatio
 uvicorn main:app --reload        # open http://localhost:8000
 ```
 
-To use the official logo, replace `assets/logo.svg` (served at `/static/logo.svg`).
+Open the app and sign in with the demo credentials `admin` / `admin`. The sign-in screen, role selector and
+chat-history sidebar are a frontend-only presentation layer: they don't restrict or store anything on the server.
+
+Brand assets live in `assets/` (served at `/static/`): `superhouse-logo.png` is the official logo (sign-in page) and
+`superhouse-mark.png` is the tower mark cut from it (favicon, widget header, bot avatar).
 
 ## Tests
 

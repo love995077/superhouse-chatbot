@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Superhouse Chatbot</title>
-<link rel="icon" href="/static/logo.svg" type="image/svg+xml">
+<title>Superhouse Enterprise Portal</title>
+<link rel="icon" href="/static/superhouse-mark.png" type="image/png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -155,9 +155,247 @@
     .bubble{max-width:88%}
     .genui-toggle .lbl{display:none}
   }
+
+  /* ================= Enterprise shell: sign-in, sidebar, role (presentation layer only) ================= */
+  :root{ --brand:#BC2E31; --brand-600:#A3262A; --brand-soft:rgba(188,46,49,.14); --ink:#0B1120; --sb-w:264px }
+  [hidden]{display:none !important}
+  body:not(.authed) .app, body:not(.authed) .widget, body:not(.authed) .launcher{display:none}
+
+  /* ---------- Sign-in ---------- */
+  .auth{position:fixed; inset:0; z-index:50; overflow-y:auto; display:flex; padding:32px 16px; transition:opacity .35s ease, visibility .35s;
+    background:radial-gradient(900px 480px at 50% -6%, rgba(188,46,49,.22), transparent 62%),
+               radial-gradient(700px 420px at 100% 110%, rgba(51,65,85,.5), transparent 60%), var(--ink)}
+  .auth::before{content:""; position:fixed; inset:0; pointer-events:none; background-size:44px 44px;
+    background-image:linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px);
+    -webkit-mask-image:radial-gradient(ellipse at 50% 32%, #000 15%, transparent 68%); mask-image:radial-gradient(ellipse at 50% 32%, #000 15%, transparent 68%)}
+  .auth.done{opacity:0; visibility:hidden}
+  .auth-col{position:relative; width:100%; max-width:400px; margin:auto; display:flex; flex-direction:column; align-items:center}
+  .auth-logo{height:132px; width:auto; margin-bottom:24px; filter:drop-shadow(0 12px 32px rgba(188,46,49,.28))}
+  .auth-card{width:100%; background:#fff; border-radius:16px; padding:28px 28px 22px; position:relative; overflow:hidden;
+    box-shadow:0 30px 80px -20px rgba(0,0,0,.65), 0 0 0 1px rgba(255,255,255,.05)}
+  .auth-card::before{content:""; position:absolute; left:0; right:0; top:0; height:3px; background:linear-gradient(90deg, var(--brand), #E0484C, var(--brand))}
+  .auth-card.shake{animation:shake .4s ease}
+  @keyframes shake{20%,60%{transform:translateX(-6px)} 40%,80%{transform:translateX(6px)}}
+  .auth-kicker{font-size:11px; font-weight:700; letter-spacing:.16em; text-transform:uppercase; color:var(--brand)}
+  .auth-card h1{margin:6px 0 4px; font-size:22px; font-weight:700; letter-spacing:-.015em; color:var(--slate-900)}
+  .auth-sub{margin:0 0 20px; font-size:13.5px; color:var(--slate-500)}
+  .auth-alert{font-size:13px; line-height:1.45; border-radius:10px; padding:10px 12px; margin-bottom:14px; background:#FEF2F2; color:#991B1B; border:1px solid #FECACA}
+  .auth-alert.info{background:var(--slate-50); color:var(--slate-700); border-color:var(--slate-200)}
+  .field{display:block; margin-bottom:14px}
+  .field-lbl{display:block; font-size:12.5px; font-weight:600; color:var(--slate-700); margin-bottom:6px}
+  .control{display:flex; align-items:center; gap:9px; height:44px; padding:0 8px 0 12px; border:1px solid var(--slate-200); border-radius:10px; background:var(--slate-50);
+    transition:border-color .15s, box-shadow .15s, background .15s}
+  .control:focus-within{background:#fff; border-color:var(--brand); box-shadow:0 0 0 4px var(--brand-soft)}
+  .control > svg{width:16px; height:16px; color:var(--slate-400); flex-shrink:0}
+  .control input{flex:1; min-width:0; height:100%; border:0; outline:0; background:transparent; font-size:14px; color:var(--slate-900)}
+  .control input::placeholder{color:var(--slate-400)}
+  .peek{width:30px; height:30px; border:0; border-radius:7px; background:transparent; color:var(--slate-400); display:grid; place-items:center}
+  .peek:hover{color:var(--slate-700); background:var(--slate-100)} .peek svg{width:16px; height:16px}
+  .auth-opts{display:flex; justify-content:space-between; align-items:center; gap:10px; margin:2px 0 18px; font-size:13px}
+  .remember{display:flex; align-items:center; gap:7px; color:var(--slate-600); cursor:pointer; user-select:none}
+  .remember input{accent-color:var(--brand); width:15px; height:15px; margin:0}
+  .auth-link{color:var(--brand); font-weight:600; text-decoration:none} .auth-link:hover{text-decoration:underline}
+  .auth-btn{width:100%; height:46px; border:0; border-radius:10px; background:var(--brand); color:#fff; font-size:14.5px; font-weight:600;
+    display:flex; align-items:center; justify-content:center; gap:9px; box-shadow:0 12px 24px -12px rgba(188,46,49,.9); transition:background .15s, transform .1s}
+  .auth-btn:hover{background:var(--brand-600)} .auth-btn:active{transform:scale(.99)} .auth-btn:disabled{cursor:progress; opacity:.85}
+  .auth-btn svg{width:16px; height:16px}
+  .spin{width:16px; height:16px; border-radius:50%; border:2px solid rgba(255,255,255,.35); border-top-color:#fff; animation:spin .7s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .auth-secure{display:flex; align-items:center; justify-content:center; gap:6px; margin-top:16px; font-size:11.5px; color:var(--slate-400)}
+  .auth-secure svg{width:13px; height:13px}
+  .auth-foot{margin-top:22px; font-size:11.5px; color:rgba(203,213,225,.5); text-align:center}
+
+  /* ---------- App shell ---------- */
+  .app{display:grid; grid-template-columns:var(--sb-w) 1fr; height:100vh; height:100dvh; transition:grid-template-columns .25s ease; animation:fadein .45s ease}
+  @keyframes fadein{from{opacity:0}}
+  .sb{background:var(--slate-900); color:var(--slate-300); display:flex; flex-direction:column; min-width:0; overflow:hidden; z-index:30}
+  .sb-top{display:flex; align-items:center; gap:8px; height:64px; padding:0 12px 0 14px; flex-shrink:0}
+  .sb-btn{width:40px; height:40px; flex-shrink:0; border:0; border-radius:10px; background:transparent; color:var(--slate-300); display:grid; place-items:center; transition:background .15s, color .15s}
+  .sb-btn:hover{background:rgba(255,255,255,.07); color:#fff} .sb-btn svg{width:18px; height:18px}
+  .sb-brand{display:flex; align-items:center; gap:10px; min-width:0; white-space:nowrap}
+  .sb-brand img{width:30px; height:30px; flex-shrink:0}
+  .sb-brand b{display:block; color:#fff; font-size:14.5px; font-weight:700; letter-spacing:.01em}
+  .sb-brand small{display:block; font-size:11px; color:var(--slate-400); margin-top:1px}
+  .sb-new{margin:6px 14px 8px; height:42px; flex-shrink:0; display:flex; align-items:center; gap:10px; padding:0 12px; border-radius:12px; white-space:nowrap; overflow:hidden;
+    border:1px solid rgba(255,255,255,.08); background:var(--slate-800); color:#fff; font-size:13.5px; font-weight:600; transition:background .15s, border-color .15s}
+  .sb-new:hover{background:#243149; border-color:rgba(255,255,255,.14)} .sb-new svg{width:17px; height:17px; flex-shrink:0}
+  .sb-list{flex:1; overflow-y:auto; padding:0 8px 12px; scrollbar-width:thin; scrollbar-color:var(--slate-700) transparent}
+  .sb-group{font-size:10.5px; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color:var(--slate-500); padding:16px 10px 6px}
+  .sb-ul{list-style:none; margin:0; padding:0}
+  .sb-item{display:flex; align-items:center; height:38px; border-radius:10px; overflow:hidden; transition:background .15s, opacity .2s, height .22s ease, transform .22s ease}
+  .sb-item:hover{background:rgba(255,255,255,.06)}
+  .sb-item.active{background:rgba(188,46,49,.18)}
+  .sb-item.removing{opacity:0; height:0; transform:translateX(-14px)}
+  .sb-open{flex:1; min-width:0; height:100%; display:flex; align-items:center; gap:10px; padding:0 4px 0 10px; border:0; background:transparent; color:var(--slate-300); font-size:13.5px; text-align:left}
+  .sb-item:hover .sb-open, .sb-item.active .sb-open{color:#fff}
+  .sb-open svg{width:15px; height:15px; flex-shrink:0; opacity:.7}
+  .sb-open span{flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  .sb-del{width:30px; height:30px; margin-right:4px; flex-shrink:0; border:0; border-radius:8px; background:transparent; color:var(--slate-500); display:grid; place-items:center;
+    opacity:.45; transition:opacity .15s, color .15s, background .15s}
+  .sb-item:hover .sb-del, .sb-del:focus-visible{opacity:1}
+  .sb-del:hover{color:#F87171; background:rgba(248,113,113,.14)} .sb-del svg{width:15px; height:15px}
+  .sb-empty{margin:18px 10px; padding:14px; border:1px dashed rgba(255,255,255,.1); border-radius:12px; font-size:12.5px; color:var(--slate-500); text-align:center}
+  .sb-foot{display:flex; align-items:center; gap:10px; padding:12px; border-top:1px solid rgba(255,255,255,.06); flex-shrink:0}
+  .avatar{width:36px; height:36px; border-radius:50%; flex-shrink:0; display:grid; place-items:center; font-size:12.5px; font-weight:700; color:#fff; letter-spacing:.02em;
+    background:linear-gradient(135deg, var(--brand), #7F1D1D); box-shadow:0 0 0 2px rgba(255,255,255,.08)}
+  .sb-user{flex:1; min-width:0; white-space:nowrap}
+  .sb-user b{display:block; color:#fff; font-size:13.5px; font-weight:600}
+  .sb-user small{display:block; font-size:11.5px; color:var(--slate-400); overflow:hidden; text-overflow:ellipsis}
+  .scrim{display:none}
+  @media (min-width:861px){
+    .app.collapsed{--sb-w:72px}
+    .app.collapsed .sb-brand, .app.collapsed .sb-list, .app.collapsed .sb-new span, .app.collapsed .sb-user, .app.collapsed #btnLogout{display:none}
+    .app.collapsed .sb-top{padding:0 16px}
+    .app.collapsed .sb-new{width:40px; padding:0; justify-content:center; margin:6px 16px}
+    .app.collapsed .sb-foot{justify-content:center; padding:12px 0; margin-top:auto}   /* list is hidden, keep the user pinned low */
+  }
+
+  .main{position:relative; min-width:0; display:flex; flex-direction:column; background:var(--page); overflow:hidden}
+  .top{height:64px; flex-shrink:0; display:flex; align-items:center; gap:12px; padding:0 24px; background:rgba(255,255,255,.72);
+    backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); border-bottom:1px solid var(--slate-200)}
+  .top-menu{display:none; color:var(--slate-600)} .top-menu:hover{background:var(--slate-100); color:var(--slate-900)}
+  .top-title{flex:1; min-width:0; white-space:nowrap}
+  .top-title b{display:block; font-size:15px; font-weight:600; color:var(--slate-900); overflow:hidden; text-overflow:ellipsis}
+  .top-title small{display:block; font-size:12px; color:var(--slate-500); overflow:hidden; text-overflow:ellipsis}
+  .secure-pill{display:flex; align-items:center; gap:6px; height:32px; padding:0 11px; border-radius:999px; font-size:12px; font-weight:600;
+    color:#15803D; background:#F0FDF4; border:1px solid #BBF7D0; white-space:nowrap}
+  .secure-pill svg{width:13px; height:13px}
+  .role{position:relative; display:flex; align-items:center; gap:6px; height:36px; padding:0 30px 0 12px; border-radius:999px; background:#fff;
+    border:1px solid var(--slate-200); font-size:12.5px; color:var(--slate-500); white-space:nowrap; transition:border-color .15s, box-shadow .15s}
+  .role:hover{border-color:var(--slate-300)} .role:focus-within{border-color:var(--slate-400); box-shadow:0 0 0 4px rgba(15,23,42,.06)}
+  .role > svg{width:14px; height:14px; color:var(--brand); flex-shrink:0}
+  .role select{appearance:none; -webkit-appearance:none; border:0; outline:0; background:transparent; font-size:12.5px; font-weight:600; color:var(--slate-900); cursor:pointer; padding:0}
+  .role .chev{position:absolute; right:11px; width:13px; height:13px; color:var(--slate-500); pointer-events:none}
+  .top .avatar{width:34px; height:34px; font-size:12px}
+
+  .stage{flex:1; position:relative; display:grid; place-items:center; padding:32px 24px; transition:padding .3s ease}
+  .stage::before{content:""; position:absolute; inset:0; pointer-events:none; background-image:radial-gradient(rgba(15,23,42,.07) 1px, transparent 1px); background-size:22px 22px;
+    -webkit-mask-image:radial-gradient(ellipse at center, #000 10%, transparent 65%); mask-image:radial-gradient(ellipse at center, #000 10%, transparent 65%)}
+  @media (min-width:1100px){ body.w-open .stage{padding-right:458px} }
+  .secure{position:relative; max-width:540px; text-align:center; user-select:none}
+  .secure-emblem{width:88px; height:88px; margin:0 auto 24px; border-radius:26px; display:grid; place-items:center; background:linear-gradient(180deg, #fff, var(--slate-100));
+    box-shadow:0 1px 0 #fff inset, 0 20px 44px -20px rgba(15,23,42,.4), 0 0 0 1px var(--slate-200)}
+  .secure-emblem img{width:50px; height:50px; filter:grayscale(1); opacity:.5}
+  .secure h2{margin:0; font-size:24px; font-weight:600; letter-spacing:-.015em; color:var(--slate-500)}
+  .secure p{margin:10px 0 0; font-size:14.5px; line-height:1.6; color:var(--slate-400)}
+
+  .app-toast{position:fixed; top:76px; left:50%; z-index:40; transform:translate(-50%, -6px); background:var(--slate-900); color:#fff; font-size:12.5px; padding:8px 14px;
+    border-radius:10px; box-shadow:0 12px 28px -10px rgba(15,23,42,.55); opacity:0; pointer-events:none; transition:opacity .2s, transform .2s; white-space:nowrap}
+  .app-toast.show{opacity:.96; transform:translate(-50%, 0)}
+
+  @media (max-width:860px){
+    .app{grid-template-columns:1fr}
+    .sb{position:fixed; left:0; top:0; bottom:0; width:280px; transform:translateX(-100%); transition:transform .25s ease}
+    .app.nav-open .sb{transform:none; box-shadow:24px 0 60px -20px rgba(0,0,0,.5)}
+    .scrim{display:block; position:fixed; inset:0; z-index:29; background:rgba(15,23,42,.45); opacity:0; pointer-events:none; transition:opacity .25s}
+    .app.nav-open .scrim{opacity:1; pointer-events:auto}
+    .top{padding:0 12px 0 8px; gap:8px}
+    .top-menu{display:grid}
+    .secure-pill{display:none}
+    .secure h2{font-size:20px}
+  }
+  @media (max-width:520px){ .role .role-lbl, .top .avatar{display:none} }
 </style>
 </head>
-<body>
+<body class="w-open">
+
+<!-- Sign-in. Frontend-only demo gate: it does not protect the API. -->
+<main class="auth" id="auth">
+  <div class="auth-col">
+    <img class="auth-logo" src="/static/superhouse-logo.png" alt="Superhouse Group — Legacy of Excellence">
+    <form class="auth-card" id="loginForm" novalidate>
+      <span class="auth-kicker">Superhouse Group</span>
+      <h1>Enterprise Portal</h1>
+      <p class="auth-sub">Sign in with your corporate credentials to continue.</p>
+      <div class="auth-alert" id="authAlert" role="alert" hidden></div>
+      <label class="field"><span class="field-lbl">Email</span>
+        <span class="control">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>
+          <input id="loginId" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="Enter your email or username">
+        </span>
+      </label>
+      <label class="field"><span class="field-lbl">Password</span>
+        <span class="control">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+          <input id="loginPw" type="password" autocomplete="current-password" placeholder="Enter your password">
+          <button class="peek" id="peek" type="button" aria-label="Show password" aria-pressed="false">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
+        </span>
+      </label>
+      <div class="auth-opts">
+        <label class="remember"><input type="checkbox" checked> Keep me signed in</label>
+        <a class="auth-link" href="#" id="forgot">Forgot password?</a>
+      </div>
+      <button class="auth-btn" id="loginBtn" type="submit">Sign in</button>
+      <div class="auth-secure">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/></svg>
+        Secure connection · Authorized personnel only
+      </div>
+    </form>
+    <div class="auth-foot">© 2026 Superhouse Group. All rights reserved.</div>
+  </div>
+</main>
+
+<div class="app" id="app">
+  <aside class="sb" id="sb" aria-label="Chat history">
+    <div class="sb-top">
+      <button class="sb-btn" id="sbToggle" aria-label="Collapse sidebar" title="Collapse sidebar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16"/><path d="M4 12h16"/><path d="M4 18h16"/></svg>
+      </button>
+      <div class="sb-brand">
+        <img src="/static/superhouse-mark.png" alt="">
+        <div><b>Superhouse</b><small>Enterprise Portal</small></div>
+      </div>
+    </div>
+    <button class="sb-new" id="sbNew" title="New chat">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+      <span>New chat</span>
+    </button>
+    <nav class="sb-list" id="sbList">
+      <div class="sb-empty" id="sbEmpty" hidden>No recent chats</div>
+    </nav>
+    <div class="sb-foot">
+      <div class="avatar" title="Admin User">AU</div>
+      <div class="sb-user"><b>Admin User</b><small id="userRole">Superadmin</small></div>
+      <button class="sb-btn" id="btnLogout" aria-label="Sign out" title="Sign out">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>
+      </button>
+    </div>
+  </aside>
+  <div class="scrim" id="scrim"></div>
+
+  <div class="main">
+    <header class="top">
+      <button class="sb-btn top-menu" id="btnMenu" aria-label="Open chat history" title="Chat history">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16"/><path d="M4 12h16"/><path d="M4 18h16"/></svg>
+      </button>
+      <div class="top-title"><b>Superhouse Chatbot</b><small>I.O. tracking · Buyers · Production inventory</small></div>
+      <span class="secure-pill">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+        Secure session
+      </span>
+      <label class="role" title="Switch role">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/></svg>
+        <span class="role-lbl">Role:</span>
+        <select id="role" aria-label="Role">
+          <option>Superadmin</option><option>Admin</option><option>Merchandiser</option><option>Production Manager</option><option>Viewer</option>
+        </select>
+        <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+      </label>
+      <div class="avatar" title="Admin User">AU</div>
+    </header>
+
+    <section class="stage">
+      <div class="secure">
+        <div class="secure-emblem"><img src="/static/superhouse-mark.png" alt=""></div>
+        <h2>🔒 Superhouse Secure Workspace</h2>
+        <p>All production queries are end-to-end encrypted and strictly confidential.</p>
+      </div>
+    </section>
+  </div>
+</div>
+<div class="app-toast" id="appToast" role="status"></div>
 
 <button class="launcher hidden" id="launcher" aria-label="Open Superhouse Chatbot" title="Chat with Superhouse Chatbot">
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
@@ -166,7 +404,7 @@
 
 <section class="widget" id="widget" role="dialog" aria-label="Superhouse Chatbot">
   <header class="head">
-    <div class="logo"><img src="/static/logo.svg" alt="Superhouse"></div>
+    <div class="logo"><img src="/static/superhouse-mark.png" alt="Superhouse"></div>
     <div class="title">
       <h1>Superhouse Chatbot</h1>
       <div class="status"><span class="dot" id="dot"></span><span id="statusText">Online</span></div>
@@ -243,7 +481,7 @@
   };
   const scrollDown = () => requestAnimationFrame(() => { msgs.scrollTop = msgs.scrollHeight; });
   const toast = (t) => { const n = $("toast"); n.textContent = t; n.classList.add("show"); clearTimeout(toast._t); toast._t = setTimeout(() => n.classList.remove("show"), 2400); };
-  const botAvatar = () => { const av = el("div", "av"), img = el("img"); img.src = "/static/logo.svg"; img.alt = ""; av.appendChild(img); return av; };
+  const botAvatar = () => { const av = el("div", "av"), img = el("img"); img.src = "/static/superhouse-mark.png"; img.alt = ""; av.appendChild(img); return av; };
 
   function addUser(text, time) {
     const row = el("div", "row user"), b = el("div", "bubble");
@@ -458,11 +696,14 @@
   genui.addEventListener("change", () => { syncGenui(); save(); toast(genui.checked ? "Gen UI on — data answers include a dashboard" : "Gen UI off"); });
 
   // ---------- window controls ----------
-  const closeW = () => { widget.classList.add("closed"); $("launcher").classList.remove("hidden"); };
-  $("btnRefresh").onclick = () => {
+  const closeW = () => { widget.classList.add("closed"); $("launcher").classList.remove("hidden"); document.body.classList.remove("w-open"); };
+  const openW = () => { widget.classList.remove("closed"); $("launcher").classList.add("hidden"); document.body.classList.add("w-open"); input.focus(); };
+  function newConversation(note) {
     fetch("/api/reset", {method: "POST", credentials: "same-origin"}).catch(() => {});   // drop server-side context
-    transcript = []; msgs.innerHTML = ""; welcome(); save(); toast("Started a new conversation");
-  };
+    transcript = []; msgs.innerHTML = ""; welcome(); save();
+    if (note) toast(note);
+  }
+  $("btnRefresh").onclick = () => newConversation("Started a new conversation");
   $("btnExpand").onclick = () => {
     widget.classList.toggle("expanded");
     const ex = widget.classList.contains("expanded");
@@ -473,8 +714,103 @@
     save();
   };
   $("btnClose").onclick = closeW;
-  $("launcher").onclick = () => { widget.classList.remove("closed"); $("launcher").classList.add("hidden"); input.focus(); };
-  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !widget.classList.contains("closed")) closeW(); });
+  $("launcher").onclick = openW;
+  document.addEventListener("keydown", (e) => {
+    if (e.key !== "Escape" || !document.body.classList.contains("authed")) return;
+    if (app.classList.contains("nav-open")) closeNav();
+    else if (!widget.classList.contains("closed")) closeW();
+  });
+
+  // ---------- enterprise shell: sign-in, role switcher, chat history ----------
+  // Presentation layer for demos only: the credentials, roles and history below are dummies and
+  // restrict nothing on the server.
+  const app = $("app"), auth = $("auth"), loginForm = $("loginForm"), authAlert = $("authAlert"), loginBtn = $("loginBtn");
+  const DEMO_USER = "admin", DEMO_PASS = "admin";
+  const HISTORY = [
+    {group: "Today", items: ["Walmart Pending Orders", "Oct Dispatch Load"]},
+    {group: "Previous 7 days", items: ["Material Shortfall", "Leather Stock by Group", "Samples Past Delivery Date"]},
+  ];
+  const ICON_CHAT = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>';
+  const ICON_TRASH = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>';
+  const mobile = () => matchMedia("(max-width:860px)").matches;
+  const appToast = (t) => { const n = $("appToast"); n.textContent = t; n.classList.add("show"); clearTimeout(appToast._t); appToast._t = setTimeout(() => n.classList.remove("show"), 2200); };
+  const closeNav = () => app.classList.remove("nav-open");
+  const alertMsg = (text, info) => { authAlert.textContent = text; authAlert.classList.toggle("info", !!info); authAlert.hidden = false; };
+
+  loginForm.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const id = $("loginId").value.trim().toLowerCase(), pw = $("loginPw").value;
+    if (!id || !pw) { alertMsg("Please enter your email and password."); (id ? $("loginPw") : $("loginId")).focus(); return; }
+    if ((id !== DEMO_USER && !id.startsWith(DEMO_USER + "@")) || pw !== DEMO_PASS) {
+      alertMsg("Invalid email or password. Please try again.");
+      loginForm.classList.remove("shake"); void loginForm.offsetWidth; loginForm.classList.add("shake");
+      $("loginPw").value = ""; $("loginPw").focus();
+      return;
+    }
+    authAlert.hidden = true; loginBtn.disabled = true; loginBtn.innerHTML = '<span class="spin"></span>Signing in…';
+    setTimeout(() => {
+      document.body.classList.add("authed"); auth.classList.add("done");
+      loginBtn.disabled = false; loginBtn.textContent = "Sign in";
+      scrollDown(); if (!widget.classList.contains("closed")) input.focus();
+    }, 600);
+  });
+  $("forgot").addEventListener("click", (e) => {
+    e.preventDefault();
+    alertMsg("Password resets are managed by Superhouse IT. Please contact your system administrator to regain access.", true);
+  });
+  $("peek").addEventListener("click", () => {
+    const pw = $("loginPw"), show = pw.type === "password";
+    pw.type = show ? "text" : "password";
+    $("peek").setAttribute("aria-pressed", String(show)); $("peek").setAttribute("aria-label", show ? "Hide password" : "Show password");
+  });
+  $("btnLogout").onclick = () => {
+    newConversation(); closeNav();
+    document.body.classList.remove("authed"); auth.classList.remove("done");
+    loginForm.reset(); $("loginPw").type = "password"; authAlert.hidden = true; $("loginId").focus();
+  };
+
+  $("role").addEventListener("change", (e) => { $("userRole").textContent = e.target.value; appToast("Role switched to " + e.target.value); });
+
+  function openChat(li, title) {
+    document.querySelectorAll(".sb-item.active").forEach((n) => n.classList.remove("active"));
+    li.classList.add("active");
+    newConversation(); openW(); closeNav();
+    appToast("Opened “" + title + "”");
+  }
+  function deleteChat(li, section, title) {
+    li.classList.add("removing");
+    setTimeout(() => {
+      li.remove();
+      if (!section.querySelector(".sb-item")) section.remove();
+      if (!$("sbList").querySelector(".sb-item")) $("sbEmpty").hidden = false;
+    }, 230);
+    appToast("Deleted “" + title + "”");
+  }
+  HISTORY.forEach(({group, items}) => {
+    const section = el("section"), ul = el("ul", "sb-ul");
+    section.append(el("div", "sb-group", group), ul);
+    items.forEach((title) => {
+      const li = el("li", "sb-item"), open = el("button", "sb-open"), del = el("button", "sb-del");
+      open.type = del.type = "button";
+      open.innerHTML = ICON_CHAT; open.appendChild(el("span", null, title)); open.title = title;
+      del.innerHTML = ICON_TRASH; del.title = "Delete chat"; del.setAttribute("aria-label", "Delete chat: " + title);
+      open.onclick = () => openChat(li, title);
+      del.onclick = () => deleteChat(li, section, title);
+      li.append(open, del); ul.appendChild(li);
+    });
+    $("sbList").insertBefore(section, $("sbEmpty"));
+  });
+  $("sbNew").onclick = () => {
+    document.querySelectorAll(".sb-item.active").forEach((n) => n.classList.remove("active"));
+    newConversation("Started a new conversation"); openW(); closeNav();
+  };
+  $("sbToggle").onclick = () => {
+    if (mobile()) return closeNav();
+    const c = app.classList.toggle("collapsed");
+    $("sbToggle").title = c ? "Expand sidebar" : "Collapse sidebar"; $("sbToggle").setAttribute("aria-label", $("sbToggle").title);
+  };
+  $("btnMenu").onclick = () => app.classList.add("nav-open");
+  $("scrim").onclick = closeNav;
 
   // ---------- status ----------
   fetch("/health").then((r) => r.json()).then((h) => {
@@ -490,7 +826,7 @@
     transcript.forEach((it) => it.kind === "user" ? addUser(it.text, it.time) : addBot(it.data, it.time));
   }
   if (saved && saved.expanded) $("btnExpand").click();
-  input.focus();
+  $("loginId").focus();                                           // every visit starts at the sign-in screen
 })();
 </script>
 </body>
