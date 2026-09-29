@@ -72,11 +72,15 @@ python setup_db.py               # builds superhouse.db and prints reconciliatio
 uvicorn main:app --reload        # open http://localhost:8000
 ```
 
-Open the app and sign in with the demo credentials `admin` / `admin`. The sign-in screen, role selector and
-chat-history sidebar are a frontend-only presentation layer: they don't restrict or store anything on the server.
+Open the app and sign in with the demo credentials `admin` / `admin`. The sign-in screen and role selector are a
+frontend-only presentation layer: they don't restrict anything on the server. The chat-history sidebar is saved in the
+browser's `localStorage` (`superhouse_chats_v1`, up to 30 chats), so it survives reloads but is per browser. The server
+only keeps follow-up context for the chat that is currently open.
 
-Brand assets live in `assets/` (served at `/static/`): `superhouse-logo.png` is the official logo (sign-in page) and
-`superhouse-mark.png` is the tower mark cut from it (favicon, widget header, bot avatar).
+Brand assets live in `assets/` (served at `/static/`):
+- `superhouse-logo.png`: the official logo, with white lettering (for dark backgrounds)
+- `superhouse-logo-light.png`: the same logo with dark lettering (the sign-in page)
+- `superhouse-mark.png`: the tower mark cut from the logo (favicon, widget header, bot avatar)
 
 ## Tests
 
