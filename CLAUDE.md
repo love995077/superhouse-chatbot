@@ -15,7 +15,7 @@ python setup_db.py                         # build superhouse.db from the Excel 
                                            # (optional args: <xlsx> <db>)
 COOKIE_SECURE=0 uvicorn main:app --reload  # http://localhost:8000; COOKIE_SECURE=0 because the cookie is Secure by default
 python chatbot.py "which leather items need to be ordered?"   # run the engine once from the CLI and print the SQL and rows
-`
+
 python test_bot.py            # every check, including live LLM queries (needs a real OPENAI_API_KEY)
 python test_bot.py --offline  # no model calls
 ```
