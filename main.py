@@ -1,7 +1,7 @@
 """
-Superhouse Chatbot - FastAPI server for the floating chat widget.
+Superhouse Chatbot - FastAPI server for the full-screen chat page.
 
-    GET  /              -> templates/index.html (widget, served with a per-request CSP nonce)
+    GET  /              -> templates/index.html (chat page, served with a per-request CSP nonce)
     POST /api/chat      -> {message, gen_ui} -> bot message + table data (never SQL)
     POST /api/reset     -> forget this browser's conversation context
     GET  /health        -> liveness probe
@@ -33,7 +33,7 @@ log = logging.getLogger("superhouse.api")
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 TEMPLATE = os.path.join(BASE_DIR, "templates", "index.html")
-TABLE_ROW_LIMIT = 200                                   # rows sent to the widget per answer
+TABLE_ROW_LIMIT = 200                                   # rows sent to the page per answer
 COOKIE_NAME = "sh_sid"
 COOKIE_SECURE = os.getenv("COOKIE_SECURE", "1") != "0"   # HTTPS in production; set 0 only for plain-http tests
 SESSION_TTL = 2 * 3600
